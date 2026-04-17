@@ -44,7 +44,7 @@ A publisher who publishes a `pagedigest` manifest is committing to the following
 
 The manifest will be reachable at `/.well-known/pagedigest.json` and will be a valid document conforming to the specification.
 
-The `site_rev` integer will increment when any URL covered by the manifest has its content changed, and will not increment for unrelated reasons — cache invalidations, deploys that don't change content, tracking-pixel updates, A/B bucket reshuffling, or any other operational churn that doesn't represent actual content change.
+The `site_rev` integer will increment when any URL covered by the manifest has its content changed, or when covered URLs are added to or removed from the manifest, and will not increment for unrelated reasons — cache invalidations, deploys that don't change content, tracking-pixel updates, A/B bucket reshuffling, or any other operational churn that doesn't represent actual content change.
 
 Per-URL `rev` integers will increment only when the content of that specific URL has changed. A publisher whose `rev` increments without content change has broken the protocol, even if the increment was accidental.
 
@@ -66,11 +66,13 @@ The consumer will periodically audit `digest` values where present, by fetching 
 
 Where audit mismatches exceed a consumer-defined threshold, the consumer is expected to downgrade trust in that publisher's manifest and may fall back to unconditional fetching.
 
+Different consumers will choose different thresholds based on risk tolerance and crawl cost. A consumer may begin with a conservative default and tighten or relax it based on observed publisher reliability over time.
+
 ### Earned enforcement
 
-A publisher who meets their obligations has earned the right to rate-limit or block consumers that ignore the manifest. This is the protocol's intended escalation path when a valid manifest is ignored. A consumer that continues to fetch a site redundantly after being shown a valid manifest is imposing real cost on a publisher who has done real work to make that cost unnecessary, and the publisher is justified in responding.
+A publisher who meets their obligations has strong justification to rate-limit or block consumers that ignore the manifest. This is the protocol's intended escalation path when a valid manifest is ignored. A consumer that continues to fetch a site redundantly after being shown a valid manifest is imposing real cost on a publisher who has done real work to make that cost unnecessary, and the publisher is justified in responding.
 
-Conversely, a publisher who does not meet their obligations has not earned this right. Citing `pagedigest` in a rate-limit response while maintaining a stale, dishonest, or absent manifest is a violation of the contract, and consumers are encouraged to treat such sites as operating in bad faith.
+Conversely, a publisher who does not meet their obligations does not have this justification. Citing `pagedigest` in a rate-limit response while maintaining a stale, dishonest, or absent manifest is a violation of the contract, and consumers are encouraged to treat such sites as operating in bad faith.
 
 The legitimacy of escalation depends on the manifest being valid, current, and specific to the traffic being limited. Without that grounding, the enforcement is just another bot-war escalation. With it, the publisher's response is connected to measurable evidence of waste.
 
@@ -83,7 +85,7 @@ When a publisher with a valid, honestly maintained manifest rate-limits a consum
 Every rate-limit response from a publisher who maintains a valid manifest SHOULD include:
 
 ```
-Link: </.well-known/pagedigest.json>; rel="pagedigest"
+Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
 ```
 
 This header is the most reliable channel for reaching automated systems. Crawler frameworks can be configured to inspect `Link` headers on error responses without any human in the loop. Adopting this convention across the ecosystem allows a crawler library to detect manifest availability programmatically and adjust behavior automatically — which is the right level for this signal to operate at long-term.
@@ -95,7 +97,7 @@ The recommended response body cites specific evidence of waste and points to the
 ```
 HTTP/1.1 429 Too Many Requests
 Retry-After: 3600
-Link: </.well-known/pagedigest.json>; rel="pagedigest"
+Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
 Content-Type: text/plain
 
 You fetched /blog/hello-world 47 times in the last 24 hours.
@@ -120,7 +122,7 @@ Publishers MAY include specific request counts, last-change dates, or other meas
 ```
 HTTP/1.1 429 Too Many Requests
 Retry-After: 3600
-Link: </.well-known/pagedigest.json>; rel="pagedigest"
+Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
 Content-Type: text/plain
 
 You've been rate-limited for repeated requests to URLs that
@@ -135,7 +137,7 @@ The important properties are that the message cite the manifest, set the `Link` 
 
 ### Pattern detection (tertiary, behavioral channel)
 
-The third channel is pattern: as adoption grows, crawler engineers will encounter the `Link: rel="pagedigest"` header across many sites. That cross-site pattern is itself a signal — it tells a consumer operator that a recognizable convention exists and that integrating it would resolve a class of failures, not just one site's complaints.
+The third channel is pattern: as adoption grows, crawler engineers will encounter the pagedigest relation in `Link` headers across many sites. That cross-site pattern is itself a signal — it tells a consumer operator that a recognizable convention exists and that integrating it would resolve a class of failures, not just one site's complaints.
 
 This is the slowest channel but the most durable. It's how `robots.txt` and `sitemap.xml` actually got adopted: not because a single message convinced a single engineer, but because the convention became visible enough that ignoring it became operationally expensive.
 
@@ -182,7 +184,7 @@ The escalation is gradient, not binary. At each level, the cooperative path is s
 
 Every functioning protocol on the internet depends on good faith at some layer. TCP depends on hosts implementing congestion control honestly. TLS depends on certificate authorities issuing certificates carefully. BGP depends on operators announcing routes accurately. When participants act in bad faith, the protocol degrades — not catastrophically, but measurably.
 
-`pagedigest` is no different. The protocol is designed so that bad faith is detectable and costly. Publishers who lie about their manifests lose consumer trust, measured through audit mismatches. Consumers who ignore manifests face rate limits and blocks from publishers who have earned the right to impose them. The enforcement mechanisms are not the core of the protocol — the core is the cooperation. But the enforcement mechanisms are what make the cooperation robust.
+`pagedigest` is no different. The protocol is designed so that bad faith is detectable and costly. Publishers who lie about their manifests lose consumer trust, measured through audit mismatches. Consumers who ignore manifests face rate limits and blocks from publishers who are justified in imposing them. The enforcement mechanisms are not the core of the protocol — the core is the cooperation. But the enforcement mechanisms are what make the cooperation robust.
 
 A publisher who adopts `pagedigest` is saying: *I will do the work to make my site cheap for you to crawl. I expect you to do the work to crawl it cheaply.*
 
