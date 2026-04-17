@@ -127,7 +127,7 @@ If you are reading a packed review snapshot or docs-only bundle, the implementat
 
 **Both sides benefit** because the waste was never in either of their interests. The protocol doesn't create the alignment — the alignment was always there. The protocol just makes it actionable.
 
-A publisher who maintains the manifest honestly has strong justification to rate-limit consumers that ignore it, because those consumers are imposing real cost that the publisher has done real work to make unnecessary. A publisher who doesn't maintain the manifest honestly does not have that justification, and consumers are encouraged to treat such sites as operating in bad faith. See [CONTRACT.md](./CONTRACT.md) for the full obligations and the recommended 429 pattern.
+A publisher who maintains the manifest honestly has strong justification to rate-limit consumers that ignore it, because those consumers are imposing real cost that the publisher has done real work to make unnecessary. A publisher who doesn't maintain the manifest honestly does not have that justification, and consumers are encouraged to treat such sites as maintaining an unreliable manifest or not participating reliably in the protocol. See [CONTRACT.md](./CONTRACT.md) for the full obligations and the recommended 429 pattern.
 
 ## What this is not
 
@@ -159,6 +159,12 @@ Version 1 release candidate. MIT licensed.
 The wire format is intended to be stable. Implementation feedback may refine wording and edge cases before v1 is finalized, but publishers and consumers who build against the current spec should not expect breaking changes to field names, semantics, or file location.
 
 The manifest format is stable for v1 RC; registration of discovery identifiers may still be finalized before 1.0.
+
+### RC compatibility note for adopters
+
+- v1 RC manifests are expected to remain valid for v1.0.
+- Field names, semantics, and the canonical location `/.well-known/pagedigest.json` are not expected to break.
+- Before 1.0, only clarifications and optional extensions are expected.
 
 Early adopters who want to participate in refining the ecosystem should open an issue or reach out directly.
 

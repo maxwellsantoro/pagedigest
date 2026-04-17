@@ -2,6 +2,29 @@
 
 This checklist separates release-candidate readiness from final 1.0 readiness so implementation work can proceed without ambiguity.
 
+## Launch Now (No More Bikeshedding)
+
+- [ ] Publish minimal generator reference implementation (emits `/.well-known/pagedigest.json`).
+- [ ] Publish minimal consumer reference implementation (fetch, diff `site_rev`/`rev`, optional `digest` audit).
+- [ ] Dogfood on one real publisher-controlled site (ideally `pagedigest.org`) and document generation method.
+- [ ] Document manifest cache policy choice (`Cache-Control` and rationale) from dogfood deployment.
+- [ ] Publish one producer case study with before/after crawl behavior or simulated savings.
+- [ ] Publish one real consumer integration that handles malformed manifests gracefully and skips unchanged URLs.
+- [ ] Update README language to reflect shipped reality for each package as it goes live.
+- [ ] Keep not-yet-shipped pieces explicitly marked as planned in README.
+- [ ] File well-known URI suffix registration.
+- [ ] File link relation registration.
+
+### Practical Order
+
+1. Ship generator.
+2. Ship consumer.
+3. Dogfood on one real site.
+4. Update README to reflect shipped reality.
+5. Publish producer + consumer write-ups.
+6. File registrations.
+7. Declare 1.0 when done.
+
 ## RC Gate (v1 RC)
 
 - [x] Manifest location is fixed at `/.well-known/pagedigest.json`.
