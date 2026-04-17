@@ -253,11 +253,11 @@ A consumer that respects `pagedigest` manifests follows this algorithm when craw
 
 1. Fetch `/.well-known/pagedigest.json`. If the fetch fails (404, timeout, invalid JSON), fall back to the consumer's default crawling behavior for this site.
 
-1. Compare the manifest's `site_rev` against the consumer's cached value for this site. If equal, no URLs have changed; update the consumer's last-checked record and terminate this crawl cycle without fetching individual URLs. If greater, proceed to step 1 below. If less than cached, treat the manifest as anomalous and fall back to default behavior.
+2. Compare the manifest's `site_rev` against the consumer's cached value for this site. If equal, no URLs have changed; update the consumer's last-checked record and terminate this crawl cycle without fetching individual URLs. If greater, proceed to step 3 below. If less than cached, treat the manifest as anomalous and fall back to default behavior.
 
-1. For each entry in the manifest's `entries` map, entry lookup and cache comparison are keyed by the pre-redirect request URL, byte-exact against manifest keys. Consumers MUST NOT rewrite keys based on redirect targets. If the consumer has no cached `rev` for this URL, the URL is new: fetch it and record the manifest's `rev`. If the manifest's `rev` is greater than cached `rev`, the URL has changed: fetch it and update cached `rev`. If equal, do not fetch. If less than cached, treat as anomalous and fall back to default behavior for this URL.
+3. For each entry in the manifest's `entries` map, entry lookup and cache comparison are keyed by the pre-redirect request URL, byte-exact against manifest keys. Consumers MUST NOT rewrite keys based on redirect targets. If the consumer has no cached `rev` for this URL, the URL is new: fetch it and record the manifest's `rev`. If the manifest's `rev` is greater than cached `rev`, the URL has changed: fetch it and update cached `rev`. If equal, do not fetch. If less than cached, treat as anomalous and fall back to default behavior for this URL.
 
-1. For URLs previously seen by the consumer that are no longer listed in the manifest: if `coverage.mode` is `complete`, omission is a positive signal that the URL is no longer part of the publisher's covered set and SHOULD be treated as removed from coverage. If `coverage.mode` is `prefixes` or `coverage` is absent, omission remains ambiguous and SHOULD be treated as "not described here" rather than implicitly unchanged.
+4. For URLs previously seen by the consumer that are no longer listed in the manifest: if `coverage.mode` is `complete`, omission is a positive signal that the URL is no longer part of the publisher's covered set and SHOULD be treated as removed from coverage. If `coverage.mode` is `prefixes` or `coverage` is absent, omission remains ambiguous and SHOULD be treated as "not described here" rather than implicitly unchanged.
 
 ### 5.2 Auditing
 

@@ -283,4 +283,16 @@ mod tests {
             "/about/"
         );
     }
+
+    #[test]
+    fn rel_to_url_key_file_style_preserves_index_filename() {
+        assert_eq!(
+            rel_to_url_key(Path::new("index.html"), IndexStyle::File),
+            "/index.html"
+        );
+        assert_eq!(
+            rel_to_url_key(Path::new("about/index.html"), IndexStyle::File),
+            "/about/index.html"
+        );
+    }
 }

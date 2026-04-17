@@ -82,6 +82,24 @@ def diff(
     entries: dict[str, Any] = manifest["entries"]
     coverage_mode = (manifest.get("coverage") or {}).get("mode")
 
+    if cached_site_rev is not None and site_rev < cached_site_rev:
+        return {
+            "site_changed": False,
+            "changed": [],
+            "new": [],
+            "unchanged": [],
+            "removed": [],
+            "anomalies": [
+                {
+                    "reason": "site-rev-decrease",
+                    "cached": cached_site_rev,
+                    "manifest": site_rev,
+                }
+            ],
+            "site_anomaly": "site-rev-decrease",
+            "site_rev": site_rev,
+        }
+
     if cached_site_rev is not None and site_rev == cached_site_rev:
         return {
             "site_changed": False,
@@ -188,6 +206,17 @@ def check_site(
 
     assert result.manifest is not None
     decisions = diff(result.manifest, cached_site_rev, cached_revs)
+
+    if decisions.get("site_anomaly"):
+        return {
+            "fallback": True,
+            "error": decisions["site_anomaly"],
+            "status_code": result.status_code,
+            "etag": result.etag,
+            "last_modified": result.last_modified,
+            "manifest": result.manifest,
+            "anomalies": decisions.get("anomalies", []),
+        }
 
     # This minimal reference returns an audit candidate list; caller can decide sampling policy.
     audit_candidates = []

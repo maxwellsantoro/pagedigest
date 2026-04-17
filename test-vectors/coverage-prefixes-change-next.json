@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "generated": "2026-04-17T12:55:00Z",
+  "site_rev": 51,
+  "coverage": {
+    "mode": "prefixes",
+    "prefixes": [
+      "/blog/",
+      "/docs/"
+    ]
+  },
+  "entries": {
+    "/blog/": {
+      "rev": 6
+    },
+    "/blog/post-1": {
+      "rev": 3
+    }
+  }
+}

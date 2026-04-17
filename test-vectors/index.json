@@ -29,6 +29,14 @@
       "kind": "semantic-site-rev-bump"
     },
     {
+      "id": "coverage-prefixes-change",
+      "files": [
+        "coverage-prefixes-change-prev.json",
+        "coverage-prefixes-change-next.json"
+      ],
+      "kind": "semantic-site-rev-bump"
+    },
+    {
       "id": "url-key-variants",
       "file": "url-key-variants.json",
       "kind": "valid"

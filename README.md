@@ -68,7 +68,9 @@ It is less useful for stateless one-shot fetchers unless they persist per-site o
 
 Version 1 is in release-candidate status and the wire format is intended to be stable.
 
-Reference implementations are in active development. Install commands and APIs shown below are planned public targets for the v1 ecosystem and may evolve until those packages are publicly shipped.
+In-repo minimal reference implementations (Rust generator and Python consumer) are available now for RC validation and early integration.
+
+Package-manager distribution, polished install paths, and plugin ecosystem coverage are still in active development. Install commands and APIs shown below represent planned public distribution targets and may evolve until those packages are fully shipped.
 
 ## How to use it
 

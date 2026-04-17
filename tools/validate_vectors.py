@@ -82,6 +82,22 @@ def assert_coverage_mode_change_bumps_site_rev(prev_path: Path, next_path: Path)
         raise ValueError("expected site_rev to increase when coverage semantics change")
 
 
+def assert_coverage_prefixes_change_bumps_site_rev(prev_path: Path, next_path: Path) -> None:
+    prev = read_json(prev_path)
+    nxt = read_json(next_path)
+
+    prev_cov = prev.get("coverage") or {}
+    next_cov = nxt.get("coverage") or {}
+    if prev_cov.get("mode") != "prefixes" or next_cov.get("mode") != "prefixes":
+        raise ValueError("expected both fixtures to use coverage.mode=prefixes")
+
+    if prev_cov.get("prefixes") == next_cov.get("prefixes"):
+        raise ValueError("expected coverage prefixes list to change between fixtures")
+
+    if nxt["site_rev"] <= prev["site_rev"]:
+        raise ValueError("expected site_rev to increase when coverage.prefixes changes")
+
+
 def assert_url_key_variants(path: Path) -> None:
     data = read_json(path)
     entries = data.get("entries") or {}
@@ -99,6 +115,7 @@ def main() -> int:
         "valid-partial-prefix",
         "valid-with-coverage-complete",
         "coverage-mode-change",
+        "coverage-prefixes-change",
         "url-key-variants",
         "invalid-missing-required",
         "invalid-url-key-fragment",
@@ -125,6 +142,10 @@ def main() -> int:
     assert_coverage_mode_change_bumps_site_rev(
         VECTORS / "coverage-mode-change-prev.json",
         VECTORS / "coverage-mode-change-next.json",
+    )
+    assert_coverage_prefixes_change_bumps_site_rev(
+        VECTORS / "coverage-prefixes-change-prev.json",
+        VECTORS / "coverage-prefixes-change-next.json",
     )
     assert_url_key_variants(VECTORS / "url-key-variants.json")
     assert_audit_case(

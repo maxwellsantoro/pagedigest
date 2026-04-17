@@ -2,7 +2,7 @@ import hashlib
 import unittest
 from typing import Any
 
-from pagedigest.core import audit, diff, fetch
+from pagedigest.core import audit, check_site, diff, fetch
 
 
 class StubResponse:
@@ -107,6 +107,42 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(result["new"], ["/new"])
         self.assertEqual(result["unchanged"], ["/same"])
         self.assertEqual(result["removed"], ["/old"])
+
+    def test_diff_flags_site_rev_decrease(self) -> None:
+        manifest = {
+            "version": 1,
+            "generated": "2026-04-17T12:00:00Z",
+            "site_rev": 9,
+            "entries": {
+                "/": {"rev": 3},
+            },
+        }
+
+        result = diff(manifest, cached_site_rev=10, cached_revs={"/": 3})
+        self.assertEqual(result.get("site_anomaly"), "site-rev-decrease")
+        self.assertEqual(result["changed"], [])
+
+    def test_check_site_falls_back_on_site_rev_decrease(self) -> None:
+        response = StubResponse(
+            status_code=200,
+            json_data={
+                "version": 1,
+                "generated": "2026-04-17T12:00:00Z",
+                "site_rev": 9,
+                "entries": {
+                    "/": {"rev": 3}
+                },
+            },
+        )
+
+        out = check_site(
+            "https://example.com",
+            cached_site_rev=10,
+            cached_revs={"/": 3},
+            session=StubSession(response),
+        )
+        self.assertTrue(out["fallback"])
+        self.assertEqual(out["error"], "site-rev-decrease")
 
     def test_audit_match(self) -> None:
         body = b"audit match body\n"
