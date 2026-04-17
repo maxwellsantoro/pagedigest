@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pagedigest.org/pagedigest.schema.json",
+  "title": "pagedigest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "generated",
+    "site_rev",
+    "entries"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "site_rev": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "entries": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^/([^#]*)?$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "rev"
+      ],
+      "properties": {
+        "rev": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "modified": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
