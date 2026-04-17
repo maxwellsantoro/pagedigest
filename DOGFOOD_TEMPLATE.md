@@ -33,6 +33,17 @@ Use this template for the first publisher-controlled deployment write-up.
 - Estimated skipped fetches:
 - Observed bandwidth/compute delta:
 
+Suggested concrete metrics:
+
+- `manifest_requests_per_cycle`:
+- `page_requests_per_cycle`:
+- `skipped_fetch_percentage`:
+- `audit_runs_per_cycle`:
+- `audit_success_rate`:
+- `audit_inconclusive_rate`:
+- `estimated_origin_bandwidth_delta`:
+- `estimated_consumer_compute_delta`:
+
 ## Audit Notes
 
 - Audit sample rate:

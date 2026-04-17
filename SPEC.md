@@ -47,6 +47,8 @@ Until a short-form relation type is registered, publishers that advertise manife
 
 Publishers SHOULD advertise this discovery link on ordinary successful responses (for example, HTTP 200 responses for HTML pages), not only on rate-limit responses.
 
+Some managed static hosting environments may not allow fully customized 429 responses. In those environments, publishers SHOULD prioritize discovery signaling on ordinary successful responses and keep manifest discovery stable and well-documented.
+
 ## 3. File format
 
 The manifest is a JSON document with the following top-level structure:

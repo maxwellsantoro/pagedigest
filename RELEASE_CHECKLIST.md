@@ -19,6 +19,8 @@ This checklist separates release-candidate readiness from final 1.0 readiness so
 - [x] Publish minimal consumer reference implementation (fetch, diff `site_rev`/`rev`, optional `digest` audit).
 - [ ] Dogfood on one real publisher-controlled site (ideally `pagedigest.org`) and document generation method.
 - [ ] Document manifest cache policy choice (`Cache-Control` and rationale) from dogfood deployment.
+- [x] Publish content-hygiene implementation guidance for publishers.
+- [x] Document static-hosting-friendly discovery fallback when custom 429 behavior is unavailable.
 - [ ] Publish one producer case study with before/after crawl behavior or simulated savings.
 - [ ] Publish one real consumer integration that handles malformed manifests gracefully and skips unchanged URLs.
 - [ ] Ship one polished SSG plugin (Astro first), then expand to additional SSGs.

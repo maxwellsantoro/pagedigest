@@ -149,6 +149,14 @@ The 429 channel is not a guarantee that a crawler will adopt the manifest. Some 
 
 For consumers it doesn't reach, the publisher still has rate-limiting and blocking as a fallback — the same tools they had before `pagedigest` existed. The protocol doesn't make those tools less effective. It just adds a path for the cooperative outcome to happen first.
 
+### Managed static-host fallback
+
+Some managed static hosting platforms do not allow full control over 429 responses, custom response headers, or error bodies.
+
+When full 429 customization is unavailable, publishers SHOULD still surface the manifest relation on ordinary successful responses (for example, HTTP 200 responses) using the same `Link` relation guidance. Publishers MAY also publish a stable explanatory resource (for example `/.well-known/pagedigest-usage.txt` or equivalent) that points automated operators to the manifest location and expected behavior.
+
+This fallback is weaker than a fully instrumented 429 response, but it preserves discoverability and reduces integration friction for static-host deployments.
+
 ## Escalation
 
 When a consumer continues to fetch redundantly after receiving a Level 1 message, a publisher may tighten rate limits and update the response:

@@ -176,7 +176,14 @@ Publishers with unlinked-but-public URLs they do not want enumerated should use 
 - Consumers must ignore unknown fields.
 - Publishers should expect some consumers to use manifests without using the 429 pattern.
 - Publishers should advertise discovery via `Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"` on ordinary 200 responses, not only on 429 responses.
+- On managed static hosting where custom 429 headers/bodies are limited, prioritize discovery on ordinary 200 responses and publish a stable operator-facing usage note.
 - Digest auditing is optional but recommended.
+
+## Content hygiene
+
+Publisher-side byte stability is the biggest practical adoption risk for trustworthy `digest` values.
+
+See [CONTENT_HYGIENE.md](./CONTENT_HYGIENE.md) for a short implementation guide and deployment checklist.
 
 ## Status
 
