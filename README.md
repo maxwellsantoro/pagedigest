@@ -42,11 +42,25 @@ For a 10,000-page docs site that changes 20 pages a week, a consumer using `page
 - **`digest`** — optional SHA-256 of the page; lets crawlers spot-audit publisher claims.
 - **`modified`** — optional timestamp for human inspection.
 
+## Why not sitemap.xml or ETag?
+
+- `site_rev` gives a one-request, site-level fast path before touching per-URL state.
+- Monotonic integers avoid timestamp ambiguity, clock skew, and timezone edge cases.
+- `sitemap.xml` `<lastmod>` is timestamp-based and often coarse or inconsistently maintained; monotonic `rev`/`site_rev` are explicit protocol state.
+- Optional `digest` adds auditability when publishers and consumers need trust checks.
+- `ETag`/`If-None-Match` still costs one request per URL; `pagedigest` is one manifest request plus only changed pages.
+
+## Implementation status (RC)
+
+Version 1 is in release-candidate status and the wire format is intended to be stable.
+
+Reference implementations are in active development. Install commands and APIs shown below are planned public targets for the v1 ecosystem and may evolve until those packages are publicly shipped.
+
 ## How to use it
 
 ### If you publish content
 
-The reference generator is written in Rust and distributed three ways:
+Planned install targets for the reference generator (Rust binary):
 
 ```bash
 # npm wrapper around the prebuilt binary
@@ -88,7 +102,7 @@ changed = check_site(
 # Returns ["/"] — only the homepage changed since last crawl
 ```
 
-Convenience wrapper: `check_site`. Lower-level API: `fetch`, `diff`, `audit`. ~100 lines. Zero dependencies beyond `requests`.
+Planned API shape: convenience wrapper `check_site`; lower-level API `fetch`, `diff`, `audit`. Approximate implementation size is ~100 lines with a single runtime dependency: `requests`.
 
 ## What's in this repo
 
@@ -96,7 +110,7 @@ Convenience wrapper: `check_site`. Lower-level API: `fetch`, `diff`, `audit`. ~1
 - [**CONTRACT.md**](./CONTRACT.md) — The social and operational bargain around the protocol.
 - [`pagedigest.schema.json`](./pagedigest.schema.json) — Machine-readable schema for validators and tooling.
 
-Reference implementations currently include:
+Planned reference implementations include:
 - a Rust generator CLI
 - a Python consumer library
 - static-site-generator integrations
@@ -129,6 +143,8 @@ This version is for **public, primarily static HTML and Markdown content** — b
 
 Partial manifests are supported. A publisher can cover only the parts of their site that are in scope. URLs not listed are not described by the manifest; consumers should apply their default behavior to anything outside manifest coverage.
 
+Publishers with unlinked-but-public URLs they do not want enumerated should use partial manifests and review coverage carefully before publishing.
+
 ## Interoperability notes
 
 - Partial manifests are allowed.
@@ -144,7 +160,7 @@ The wire format is intended to be stable. Implementation feedback may refine wor
 
 The manifest format is stable for v1 RC; registration of discovery identifiers may still be finalized before 1.0.
 
-The reference implementations are in active development. Early adopters who want to participate in refining the ecosystem should open an issue or reach out directly.
+Early adopters who want to participate in refining the ecosystem should open an issue or reach out directly.
 
 ## Contributing
 

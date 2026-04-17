@@ -20,6 +20,8 @@ This checklist separates release-candidate readiness from final 1.0 readiness so
 - [ ] Well-known URI suffix registration status is finalized and reflected in docs.
 - [ ] Link relation registration status is finalized and reflected in docs.
 - [ ] If short-form relation becomes registered, examples are updated consistently across docs.
+- [ ] README implementation-status language matches shipped reality.
+- [ ] README explicitly compares `pagedigest` with `sitemap.xml` `<lastmod>` and `ETag` / `If-None-Match`.
 - [ ] At least one real producer integration is publicly documented.
 - [ ] At least one real consumer integration is publicly documented.
 - [ ] Compatibility note is published for early RC adopters (expected non-breaking path).

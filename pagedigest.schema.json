@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pagedigest.org/pagedigest.schema.json",
   "title": "pagedigest v1",
+  "$comment": "Validation against this schema is not the full conformance boundary. Normative URL-key and protocol semantics are defined in SPEC.md and must be applied in addition to schema checks.",
   "type": "object",
   "additionalProperties": true,
   "required": [
@@ -28,6 +29,7 @@
     },
     "entries": {
       "type": "object",
+      "$comment": "The pattern intentionally permits '/?' as a distinct origin-relative request target key. Publishers should include only materially distinct keys per SPEC guidance.",
       "propertyNames": {
         "type": "string",
         "pattern": "^/([^#]*)?$"

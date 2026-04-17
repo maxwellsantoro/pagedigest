@@ -29,6 +29,8 @@ The manifest MUST be served at `/.well-known/pagedigest.json` on any domain that
 
 The manifest SHOULD be served with `Content-Type: application/json` and SHOULD be cacheable by HTTP intermediaries (`Cache-Control: public, max-age=N` is recommended, with a value chosen by the publisher based on update frequency).
 
+Publishers should choose `max-age` conservatively enough that manifest caching does not defeat the publisher's desired change-detection latency.
+
 ### 2.1 Discovery identifiers
 
 Version 1 uses the manifest location `/.well-known/pagedigest.json` as the normative discovery point.
@@ -50,7 +52,7 @@ The manifest is a JSON document with the following top-level structure:
   "site_rev": 18293,
   "coverage": {
     "mode": "prefixes",
-    "prefixes": ["/", "/blog/"]
+    "prefixes": ["/blog/", "/docs/"]
   },
   "entries": {
     "/": {
@@ -62,7 +64,7 @@ The manifest is a JSON document with the following top-level structure:
     },
     "/blog/hello-world": {
       "rev": 3,
-      "digest": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      "digest": "sha256:9f6c2d788e6f8f3b55f1f42b42d4c24f273e6f24c5ba7d53d2f1ef3f8247648b",
       "modified": "2025-10-15T18:22:00Z"
     }
   }
@@ -148,13 +150,15 @@ A global template change that materially changes many pages may legitimately inc
 
 A cryptographic hash of the URL's content. The format is `<algorithm>:<hex-encoded-hash>`, where the hash is lowercase hexadecimal with no separators. For version 1 of this specification, the algorithm MUST be `sha256` if present.
 
-Example: `"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"`
+Example: `"sha256:9f6c2d788e6f8f3b55f1f42b42d4c24f273e6f24c5ba7d53d2f1ef3f8247648b"`
 
 The hash is computed over the response body that would be served for an HTTP `GET` request to the URL with `Accept-Encoding: identity`. That is, the hash is of the uncompressed bytes, avoiding ambiguity across different content encodings.
 
 If a URL serves multiple representations via `Vary`, publishers SHOULD either hash a documented default representation or omit `digest` for that URL.
 
 Publishers SHOULD ensure that the content being hashed is deterministic with respect to the page's actual content. In particular, publishers SHOULD avoid including non-content variation in the hashed bytes — build timestamps, analytics session identifiers, CSRF tokens, randomized asset cache-busting strings, or other values that change on every build or request without reflecting content change. Such variation, if included in the hashed bytes, will cause `digest` values and `rev` integers to churn in ways that defeat the protocol. See section 4 for publisher content-hygiene guidance.
+
+Publishers whose rendered bytes contain unavoidable non-content churn SHOULD omit `digest` for those URLs unless they can make the full identity-encoded bytes stable enough for trustworthy audits.
 
 Consumers MAY use `digest` to audit publisher claims: fetch the URL with `Accept-Encoding: identity`, compute the hash of the response, and compare. A mismatch indicates the publisher's manifest is inaccurate.
 
@@ -197,6 +201,12 @@ Publishers SHOULD NOT decrease `site_rev` or any per-URL `rev`. Values are expec
 A decrease typically indicates operational error: restoration from an older backup, migration between systems, accidental reseeding, or a generator bug. Consumers encountering a decrease SHOULD treat the manifest as anomalous and fall back to default crawling behavior for the affected URLs or site.
 
 If a publisher must reset their revision state — for example, after an incident that corrupted the prior state — the publisher SHOULD advance to a value strictly greater than the highest value they previously published, rather than resetting to zero. This preserves the monotonic invariant consumers rely on.
+
+### 4.1.1 Publisher implementation note
+
+Revision state is durable protocol state. Publishers should persist a high-water mark for `site_rev` and per-URL `rev` outside fragile CI/build numbering.
+
+Restores from backup, rebases, environment reseeds, or build-system counter resets can silently violate monotonicity if not handled deliberately.
 
 ### 4.2 Content hygiene
 
@@ -242,9 +252,9 @@ A consumer that respects `pagedigest` manifests follows this algorithm when craw
    - If the manifest's `rev` equals the cached `rev`, the URL has not changed. Do not fetch it.
    - If the manifest's `rev` is less than the cached `rev`, treat as anomalous and fall back to default behavior for this URL.
 
-4. For URLs previously seen by the consumer that are no longer listed in the manifest, treat them per the consumer's own policy for URLs no longer described by this manifest.
-
-Removal from the manifest does not by itself distinguish between deletion, depublication, and loss of manifest coverage. In particular, partial manifests are allowed, and omission means "not described here," not "unchanged."
+4. For URLs previously seen by the consumer that are no longer listed in the manifest:
+  - If `coverage.mode` is `complete`, omission is a positive signal that the URL is no longer part of the publisher's covered set and SHOULD be treated as removed from coverage.
+  - If `coverage.mode` is `prefixes` or `coverage` is absent, omission remains ambiguous and SHOULD be treated as "not described here" rather than implicitly unchanged.
 
 ### 5.2 Auditing
 
@@ -258,6 +268,8 @@ A consumer MAY periodically audit `digest` values to verify publisher honesty. T
 
 4. Compare the computed hash against the `digest` field in the manifest.
 
+The `digest` corresponds to the listed URL's successful identity-encoded representation. Redirect responses and non-success responses encountered during audit are inconclusive outcomes, not hash targets. Consumers MAY retry or temporarily reduce trust, but SHOULD NOT hash redirect bodies as substitutes for the listed URL.
+
 A mismatch indicates the publisher's manifest is inaccurate. The consumer SHOULD respond by reducing trust in the publisher's manifest, increasing the audit rate, or falling back to unconditional fetching for the publisher's URLs.
 
 If a mismatch is observed immediately after a newly observed `generated` timestamp or `site_rev` increment, consumers SHOULD treat it as potentially transient and MAY retry before downgrading trust.
@@ -265,6 +277,12 @@ If a mismatch is observed immediately after a newly observed `generated` timesta
 Sustained mismatches or monotonicity violations are stronger evidence of unreliability than an isolated mismatch near a fresh publish event.
 
 A reasonable default audit rate is approximately 1% of manifest-derived skips, distributed randomly. Consumers are free to choose different rates based on their trust model and resource budget.
+
+### 5.2.1 Manifest staleness
+
+The `generated` timestamp is informational, not authoritative protocol state.
+
+Consumers MAY treat implausibly old manifests as suspicious based on their own freshness requirements. A stale manifest MAY justify increased digest-audit rate or temporary fallback behavior until fresher manifest updates are observed.
 
 ### 5.3 Error handling
 
@@ -383,11 +401,11 @@ A manifest for a site that includes cryptographic digests for audit:
   "entries": {
     "/": {
       "rev": 14,
-      "digest": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+      "digest": "sha256:12c4be9a5f4a4a4376a6f4f7c9e1619f0fcb9c6dbb334d99d76d28b9f8578c43"
     },
     "/posts/hello-world": {
       "rev": 3,
-      "digest": "sha256:486ea46224d1bb4fb680f34f7c9ad96a8f24ec88be73ea8e5a6c65260e9cb8a7",
+      "digest": "sha256:4d4f877f4f36ac0a31ba82f269d35f7a78fc6bd6f183f064f2f6b8ff23e7b57e",
       "modified": "2025-10-10T09:15:00Z"
     }
   }

@@ -72,7 +72,7 @@ Different consumers will choose different thresholds based on risk tolerance and
 
 A publisher who meets their obligations has strong justification to rate-limit or block consumers that ignore the manifest. This is the protocol's intended escalation path when a valid manifest is ignored. A consumer that continues to fetch a site redundantly after being shown a valid manifest is imposing real cost on a publisher who has done real work to make that cost unnecessary, and the publisher is justified in responding.
 
-Conversely, a publisher who does not meet their obligations does not have this justification. Citing `pagedigest` in a rate-limit response while maintaining a stale, dishonest, or absent manifest is a violation of the contract, and consumers are encouraged to treat such sites as operating in bad faith.
+Conversely, a publisher who does not meet their obligations does not have this justification. Citing `pagedigest` in a rate-limit response while maintaining a stale, dishonest, or absent manifest is a violation of the contract, and consumers are encouraged to treat such sites as maintaining an unreliable manifest or not participating reliably in the protocol.
 
 The legitimacy of escalation depends on the manifest being valid, current, and specific to the traffic being limited. Without that grounding, the enforcement is just another bot-war escalation. With it, the publisher's response is connected to measurable evidence of waste.
 
@@ -89,6 +89,8 @@ Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
 ```
 
 This header is the most reliable channel for reaching automated systems. Crawler frameworks can be configured to inspect `Link` headers on error responses without any human in the loop. Adopting this convention across the ecosystem allows a crawler library to detect manifest availability programmatically and adjust behavior automatically — which is the right level for this signal to operate at long-term.
+
+When this relation is expressed as a URI in `Link`, clients should treat it as an identifier for relation semantics, not as a URL they are expected to dereference during ordinary operation.
 
 ### The response body (secondary, human channel)
 
