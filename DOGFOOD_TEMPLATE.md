@@ -13,6 +13,14 @@ Use this template for the first publisher-controlled deployment write-up.
 - Generator version:
 - Generation trigger (build, webhook, schedule):
 - Revision-state persistence mechanism:
+- Manifest generated from rendered output directory (not source templates):
+
+## Edge/CDN Byte Controls
+
+- HTML/asset transforms disabled on covered paths (minify/injection/rewrites):
+- Edge worker/script injections disabled on covered paths:
+- Any unavoidable transformations documented:
+- Preflight digest verification run (`tools/verify_over_wire_digests.py`) and result:
 
 ## Manifest Caching Policy
 

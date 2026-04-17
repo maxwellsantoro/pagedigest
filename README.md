@@ -208,6 +208,7 @@ The repository includes a conformance-oriented vector bundle plus automated chec
 - `test-vectors/` for valid/invalid/anomalous manifest fixtures
 - `tools/validate_vectors.py` for fixture integrity checks
 - `tools/smoke_generator_progression.py` for end-to-end generator revision progression checks
+- `tools/verify_over_wire_digests.py` for live dogfood digest sampling against identity-encoded responses
 - `.github/workflows/ci.yml` for CI execution on push and pull requests
 
 Run all local checks with one command:

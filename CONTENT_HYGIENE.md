@@ -48,3 +48,13 @@ For URLs with unavoidable non-content churn:
 - omit `digest` for those URLs,
 - keep `rev` monotonic and content-driven,
 - document the limitation in publisher notes.
+
+## Dogfood verification helper
+
+Use `tools/verify_over_wire_digests.py` against a live deployment to sample digest-bearing entries and compare manifest hashes to identity-encoded responses over the wire.
+
+Example:
+
+```bash
+python tools/verify_over_wire_digests.py https://example.com --sample-size 25
+```
