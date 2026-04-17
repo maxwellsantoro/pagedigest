@@ -1,1 +1,6 @@
 .vscode/tasks.json
+implementations/rust-generator/target/
+**/__pycache__/
+.pytest_cache/
+.venv/
+*.pyc

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python runtime dependency
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install requests
+
+      - name: Run vector validator
+        run: python tools/validate_vectors.py
+
+      - name: Run Python consumer tests
+        run: python -m unittest discover -s implementations/python-consumer/tests -v
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run Rust generator unit tests
+        run: cargo test --manifest-path implementations/rust-generator/Cargo.toml
+
+      - name: Run generator integration smoke test
+        run: python tools/smoke_generator_progression.py
