@@ -29,6 +29,16 @@ The manifest MUST be served at `/.well-known/pagedigest.json` on any domain that
 
 The manifest SHOULD be served with `Content-Type: application/json` and SHOULD be cacheable by HTTP intermediaries (`Cache-Control: public, max-age=N` is recommended, with a value chosen by the publisher based on update frequency).
 
+### 2.1 Discovery identifiers
+
+Version 1 uses the manifest location `/.well-known/pagedigest.json` as the normative discovery point.
+
+This project intends to register the `pagedigest.json` well-known URI suffix.
+
+Until a short-form relation type is registered, publishers that advertise manifest discovery via HTTP `Link` headers SHOULD use an absolute-URI extension relation type, for example:
+
+`Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"`
+
 ## 3. File format
 
 The manifest is a JSON document with the following top-level structure:
@@ -36,20 +46,24 @@ The manifest is a JSON document with the following top-level structure:
 ```json
 {
   "version": 1,
-  "generated": "2026-04-16T10:00:00Z",
+  "generated": "2025-10-16T10:00:00Z",
   "site_rev": 18293,
+  "coverage": {
+    "mode": "prefixes",
+    "prefixes": ["/", "/blog/"]
+  },
   "entries": {
     "/": {
       "rev": 47
     },
     "/about": {
       "rev": 12,
-      "modified": "2026-04-16T09:11:00Z"
+      "modified": "2025-10-16T09:11:00Z"
     },
     "/blog/hello-world": {
       "rev": 3,
       "digest": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
-      "modified": "2026-04-15T18:22:00Z"
+      "modified": "2025-10-15T18:22:00Z"
     }
   }
 }
@@ -63,11 +77,11 @@ The version of the `pagedigest` specification the manifest conforms to. For mani
 
 **`generated`** (required, string)
 
-An ISO 8601 timestamp indicating when this manifest was generated. Used for debugging and for consumers to detect stale manifests. Not used for protocol logic.
+An ISO 8601 timestamp indicating when this manifest was generated. All timestamps MUST be in UTC. Used for debugging and for consumers to detect stale manifests. Not used for protocol logic.
 
 **`site_rev`** (required, integer)
 
-A monotonically increasing integer representing the overall state of the site. This value MUST increment whenever any URL covered by the manifest has its content changed. It SHOULD NOT increment for unrelated operational events (cache flushes, deploys without content change, configuration updates).
+A monotonically increasing integer representing the overall state of the site. This value MUST increment whenever any URL covered by the manifest has its content changed, or when a URL is added to or removed from the `entries` map. It SHOULD NOT increment for unrelated operational events (cache flushes, deploys without content change, configuration updates).
 
 Consumers use `site_rev` as a fast path: a consumer whose cached `site_rev` matches the manifest's `site_rev` knows that no URLs on the site have changed since its last visit and MAY skip processing the `entries` map entirely.
 
@@ -82,9 +96,24 @@ Keys in `entries` are origin-relative request targets. Each key MUST:
 - be percent-encoded per RFC 3986 for any characters outside the unreserved set
 - NOT contain a fragment identifier (`#...`)
 
+The JSON schema's key pattern is intended only as a minimal structural check. The normative requirements for request-target syntax are defined by this specification text.
+
+Publishers SHOULD NOT emit separate entries for tracking, analytics, session, or other query variants that do not materially alter the served content.
+
 The protocol does not imply any normalization of URL keys. `/about` and `/about/` are distinct keys and MUST be treated as distinct URLs if the publisher lists them separately. Publishers are responsible for ensuring that the keys they emit match the URLs consumers would actually request.
 
 The special path `/` refers to the site root.
+
+**`coverage`** (optional, object)
+
+A machine-readable description of manifest coverage. Consumers MAY use this metadata to distinguish intentionally partial manifests from complete manifests.
+
+If present, `coverage.mode` MUST be one of:
+
+- `complete`: the publisher intends this manifest to describe the full covered URL set for this origin.
+- `prefixes`: the manifest intentionally describes only URLs under the listed origin-relative prefixes.
+
+If `coverage.mode` is `prefixes`, the `coverage.prefixes` array MUST be present and contain one or more strings that each begin with `/`.
 
 ### 3.2 Entry fields
 
@@ -96,6 +125,25 @@ A monotonically increasing integer representing the version of this specific URL
 
 Consumers compare `rev` against their cached value for the same URL. If the manifest's `rev` is greater than the cached value, the content has changed and SHOULD be re-fetched. If the `rev` matches the cached value, the content has not changed and the fetch MAY be skipped.
 
+#### 3.2.1 Semantics of `rev`
+
+For version 1, `rev` tracks material user-visible content changes for the URL's canonical representation.
+
+`rev` SHOULD increment for:
+
+- changes to primary text or meaningful media references
+- navigation changes that substantially affect interpretation or discoverability
+- template changes that materially alter the rendered document
+
+`rev` SHOULD NOT increment for:
+
+- analytics-only changes
+- per-request tokens and other request-unique values
+- deploy metadata
+- stylistic or template churn that does not materially alter informational content
+
+A global template change that materially changes many pages may legitimately increment many pages' `rev` values at once.
+
 **`digest`** (optional, string)
 
 A cryptographic hash of the URL's content. The format is `<algorithm>:<hex-encoded-hash>`, where the hash is lowercase hexadecimal with no separators. For version 1 of this specification, the algorithm MUST be `sha256` if present.
@@ -103,6 +151,8 @@ A cryptographic hash of the URL's content. The format is `<algorithm>:<hex-encod
 Example: `"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"`
 
 The hash is computed over the response body that would be served for an HTTP `GET` request to the URL with `Accept-Encoding: identity`. That is, the hash is of the uncompressed bytes, avoiding ambiguity across different content encodings.
+
+If a URL serves multiple representations via `Vary`, publishers SHOULD either hash a documented default representation or omit `digest` for that URL.
 
 Publishers SHOULD ensure that the content being hashed is deterministic with respect to the page's actual content. In particular, publishers SHOULD avoid including non-content variation in the hashed bytes — build timestamps, analytics session identifiers, CSRF tokens, randomized asset cache-busting strings, or other values that change on every build or request without reflecting content change. Such variation, if included in the hashed bytes, will cause `digest` values and `rev` integers to churn in ways that defeat the protocol. See section 4 for publisher content-hygiene guidance.
 
@@ -112,7 +162,7 @@ Publishers are not required to include `digest`. Manifests without `digest` rema
 
 **`modified`** (optional, string)
 
-An ISO 8601 timestamp indicating when the URL's content was last modified, as recorded by the publisher. Provided for debugging, human inspection, and CMS integration. Not used for protocol logic.
+An ISO 8601 timestamp indicating when the URL's content was last modified, as recorded by the publisher. All timestamps MUST be in UTC. Provided for debugging, human inspection, and CMS integration. Not used for protocol logic.
 
 Consumers SHOULD NOT make decisions based on `modified`. The `rev` integer is the authoritative change signal.
 
@@ -120,11 +170,13 @@ Consumers SHOULD NOT make decisions based on `modified`. The `rev` integer is th
 
 Consumers MUST ignore fields they do not recognize at either the top level or within entry objects. This allows for forward-compatible extensions.
 
+The JSON schema published with this specification is a validation aid, not the compatibility boundary of the protocol. Where future optional fields are added, conforming version 1 consumers are still expected to ignore fields they do not recognize.
+
 ## 4. Publisher responsibilities
 
 A publisher that generates a `pagedigest` manifest is responsible for:
 
-1. Ensuring `site_rev` increments when any URL covered by the manifest has content changes.
+1. Ensuring `site_rev` increments when any URL covered by the manifest has content changes, and when URLs are added to or removed from `entries`.
 
 2. Ensuring per-URL `rev` values increment when the corresponding URL's content changes.
 
@@ -152,7 +204,7 @@ The protocol's usefulness depends on `rev` integers and `digest` values changing
 
 Common sources of non-content variation that publishers SHOULD eliminate from hashed bytes before manifest generation:
 
-- Build timestamps embedded in every page (e.g., "Generated on 2026-04-16 at 10:00:00")
+- Build timestamps embedded in every page (e.g., "Generated on 2025-10-16 at 10:00:00")
 - Globally mutating widgets (e.g., "Recent posts" sidebars that update the footer of every page when one page is added)
 - Randomized asset cache-busting strings (e.g., `<link href="/style.css?v=abc123">` where the random value changes on every build)
 - Session identifiers or CSRF tokens rendered into static pages
@@ -162,6 +214,14 @@ Common sources of non-content variation that publishers SHOULD eliminate from ha
 Publishers whose static site generators inject such variation by default SHOULD either configure the generator to omit it, derive `rev` from a stable content region rather than from the final rendered bytes, or generate the manifest from a pre-rendering stage that does not include the variation. If a publisher emits `digest`, however, the `digest` value MUST still be computed over the full identity-encoded response body as defined in section 3.2.
 
 A publisher whose manifest churns globally on every build — every page's `rev` incrementing at once, with no actual content change on most of them — is producing a manifest that has negative value for consumers, because they will fetch more than they would have without the manifest. Such a manifest is worse than no manifest at all.
+
+### 4.3 Deployment consistency
+
+Publishers SHOULD make updated page bytes available before, or atomically with, publishing a manifest that references those updates.
+
+Publishers using CDNs, staged rollouts, or multi-region deployment paths SHOULD ensure the manifest does not become visible materially earlier than the corresponding page representations.
+
+The `generated` field is informational and MUST NOT be interpreted as a cross-edge consistency guarantee.
 
 ## 5. Consumer behavior
 
@@ -182,7 +242,9 @@ A consumer that respects `pagedigest` manifests follows this algorithm when craw
    - If the manifest's `rev` equals the cached `rev`, the URL has not changed. Do not fetch it.
    - If the manifest's `rev` is less than the cached `rev`, treat as anomalous and fall back to default behavior for this URL.
 
-4. For URLs previously seen by the consumer that are no longer listed in the manifest, treat per the consumer's own policy for disappeared URLs.
+4. For URLs previously seen by the consumer that are no longer listed in the manifest, treat them per the consumer's own policy for URLs no longer described by this manifest.
+
+Removal from the manifest does not by itself distinguish between deletion, depublication, and loss of manifest coverage. In particular, partial manifests are allowed, and omission means "not described here," not "unchanged."
 
 ### 5.2 Auditing
 
@@ -197,6 +259,10 @@ A consumer MAY periodically audit `digest` values to verify publisher honesty. T
 4. Compare the computed hash against the `digest` field in the manifest.
 
 A mismatch indicates the publisher's manifest is inaccurate. The consumer SHOULD respond by reducing trust in the publisher's manifest, increasing the audit rate, or falling back to unconditional fetching for the publisher's URLs.
+
+If a mismatch is observed immediately after a newly observed `generated` timestamp or `site_rev` increment, consumers SHOULD treat it as potentially transient and MAY retry before downgrading trust.
+
+Sustained mismatches or monotonicity violations are stronger evidence of unreliability than an isolated mismatch near a fresh publish event.
 
 A reasonable default audit rate is approximately 1% of manifest-derived skips, distributed randomly. Consumers are free to choose different rates based on their trust model and resource budget.
 
@@ -266,16 +332,36 @@ A manifest exposes the complete list of URLs covered on a site, including URLs t
 - RFC 8288: Web Linking
 - IANA Well-Known URIs registry: https://www.iana.org/assignments/well-known-uris/well-known-uris.xhtml
 - IANA Link Relation Types registry: https://www.iana.org/assignments/link-relations/link-relations.xhtml
-## Appendix A: Example manifests
 
-### A.1 Minimal manifest
+## Appendix A: URL-key conformance examples
+
+The schema key pattern is intentionally minimal. The following examples illustrate this specification's normative key rules.
+
+Valid examples:
+
+- `/`
+- `/about`
+- `/docs/api?lang=en`
+- `/posts/hello%20world`
+
+Invalid examples:
+
+- `about` (missing leading `/`)
+- `/foo#bar` (contains a fragment)
+- `https://example.com/foo` (absolute URL; keys are origin-relative)
+- `/foo?utm_source=x` when the query is a non-material tracking variant that the publisher should omit
+- `/posts/hello world` (raw space must be percent-encoded)
+
+## Appendix B: Example manifests
+
+### B.1 Minimal manifest
 
 A valid minimal manifest for a small site:
 
 ```json
 {
   "version": 1,
-  "generated": "2026-04-16T10:00:00Z",
+  "generated": "2025-10-16T10:00:00Z",
   "site_rev": 5,
   "entries": {
     "/": { "rev": 2 },
@@ -285,14 +371,14 @@ A valid minimal manifest for a small site:
 }
 ```
 
-### A.2 Manifest with digests
+### B.2 Manifest with digests
 
 A manifest for a site that includes cryptographic digests for audit:
 
 ```json
 {
   "version": 1,
-  "generated": "2026-04-16T10:00:00Z",
+  "generated": "2025-10-16T10:00:00Z",
   "site_rev": 142,
   "entries": {
     "/": {
@@ -302,25 +388,35 @@ A manifest for a site that includes cryptographic digests for audit:
     "/posts/hello-world": {
       "rev": 3,
       "digest": "sha256:486ea46224d1bb4fb680f34f7c9ad96a8f24ec88be73ea8e5a6c65260e9cb8a7",
-      "modified": "2026-04-10T09:15:00Z"
+      "modified": "2025-10-10T09:15:00Z"
     }
   }
 }
 ```
 
-### A.3 Partial manifest
+### B.3 Partial manifest
 
 A manifest covering only a subset of a site — the publisher has opted to describe only the blog, not the full site:
 
 ```json
 {
   "version": 1,
-  "generated": "2026-04-16T10:00:00Z",
+  "generated": "2025-10-16T10:00:00Z",
   "site_rev": 89,
+  "coverage": {
+    "mode": "prefixes",
+    "prefixes": ["/blog/"]
+  },
   "entries": {
     "/blog/": { "rev": 12 },
-    "/blog/post-1": { "rev": 4, "digest": "sha256:abc..." },
-    "/blog/post-2": { "rev": 1, "digest": "sha256:def..." }
+    "/blog/post-1": {
+      "rev": 4,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "/blog/post-2": {
+      "rev": 1,
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
   }
 }
 ```
