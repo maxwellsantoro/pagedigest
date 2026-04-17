@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "generated": "2026-04-17T12:10:00Z",
+  "site_rev": 8,
+  "entries": {
+    "/": {
+      "rev": 3
+    },
+    "/docs/start": {
+      "rev": 4
+    }
+  }
+}

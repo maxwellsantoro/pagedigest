@@ -1,0 +1,49 @@
+{
+  "cases": [
+    {
+      "id": "valid-minimal",
+      "file": "valid-minimal.json",
+      "kind": "valid"
+    },
+    {
+      "id": "valid-with-digest",
+      "file": "valid-with-digest.json",
+      "kind": "valid"
+    },
+    {
+      "id": "valid-partial-prefix",
+      "file": "valid-partial-prefix.json",
+      "kind": "valid"
+    },
+    {
+      "id": "invalid-missing-required",
+      "file": "invalid-missing-required.json",
+      "kind": "invalid-schema"
+    },
+    {
+      "id": "invalid-url-key-fragment",
+      "file": "invalid-url-key-fragment.json",
+      "kind": "invalid-spec"
+    },
+    {
+      "id": "violation-monotonicity",
+      "files": [
+        "violation-monotonicity-prev.json",
+        "violation-monotonicity-next.json"
+      ],
+      "kind": "anomalous-sequence"
+    },
+    {
+      "id": "audit-match",
+      "manifest": "audit-match/manifest.json",
+      "body": "audit-match/page-body.bin",
+      "kind": "audit-match"
+    },
+    {
+      "id": "audit-mismatch",
+      "manifest": "audit-mismatch/manifest.json",
+      "body": "audit-mismatch/page-body.bin",
+      "kind": "audit-mismatch"
+    }
+  ]
+}

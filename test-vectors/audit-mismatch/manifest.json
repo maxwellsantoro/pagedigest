@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "generated": "2026-04-17T12:21:00Z",
+  "site_rev": 1,
+  "entries": {
+    "/audit": {
+      "rev": 1,
+      "digest": "sha256:b705d3ba28a1269e01b995c4f2ae18fa46c95e068bcdb10da71c5d2053db8aab"
+    }
+  }
+}
