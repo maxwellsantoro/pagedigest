@@ -50,6 +50,20 @@ For a 10,000-page docs site that changes 20 pages a week, a consumer using `page
 - Optional `digest` adds auditability when publishers and consumers need trust checks.
 - `ETag`/`If-None-Match` still costs one request per URL; `pagedigest` is one manifest request plus only changed pages.
 
+## Where this fits in the stack
+
+- `robots.txt`: permission and crawl policy.
+- `pagedigest`: change detection and fetch efficiency.
+- licensing/pay-per-crawl systems: economic terms.
+
+These layers are complementary and can be deployed independently.
+
+## Best-fit consumers
+
+`pagedigest` is best for stateful, periodic consumers that retain crawl state: search indexers, archives, mirrors, enterprise sync pipelines, and agent caches.
+
+It is less useful for stateless one-shot fetchers unless they persist per-site or per-URL cache state across sessions.
+
 ## Implementation status (RC)
 
 Version 1 is in release-candidate status and the wire format is intended to be stable.
@@ -110,10 +124,18 @@ Planned API shape: convenience wrapper `check_site`; lower-level API `fetch`, `d
 - [**CONTRACT.md**](./CONTRACT.md) — The social and operational bargain around the protocol.
 - [`pagedigest.schema.json`](./pagedigest.schema.json) — Machine-readable schema for validators and tooling.
 
-Planned reference implementations include:
+In-repo minimal reference implementations now include:
+
 - a Rust generator CLI
 - a Python consumer library
-- static-site-generator integrations
+
+See:
+
+- `implementations/rust-generator/`
+- `implementations/python-consumer/`
+- `test-vectors/`
+
+Planned ecosystem integrations still include static-site-generator plugins and package-manager distribution.
 
 If you are reading a packed review snapshot or docs-only bundle, the implementation directories may not be included here even though they exist in the broader project or release plan.
 
@@ -150,6 +172,7 @@ Publishers with unlinked-but-public URLs they do not want enumerated should use 
 - Partial manifests are allowed.
 - Consumers must ignore unknown fields.
 - Publishers should expect some consumers to use manifests without using the 429 pattern.
+- Publishers should advertise discovery via `Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"` on ordinary 200 responses, not only on 429 responses.
 - Digest auditing is optional but recommended.
 
 ## Status
@@ -167,6 +190,21 @@ The manifest format is stable for v1 RC; registration of discovery identifiers m
 - Before 1.0, only clarifications and optional extensions are expected.
 
 Early adopters who want to participate in refining the ecosystem should open an issue or reach out directly.
+
+## Conformance and CI
+
+The repository includes a conformance-oriented vector bundle plus automated checks:
+
+- `test-vectors/` for valid/invalid/anomalous manifest fixtures
+- `tools/validate_vectors.py` for fixture integrity checks
+- `tools/smoke_generator_progression.py` for end-to-end generator revision progression checks
+- `.github/workflows/ci.yml` for CI execution on push and pull requests
+
+Run all local checks with one command:
+
+```bash
+./tools/run_checks.sh
+```
 
 ## Contributing
 

@@ -2,14 +2,27 @@
 
 This checklist separates release-candidate readiness from final 1.0 readiness so implementation work can proceed without ambiguity.
 
+## Pre-Freeze Clarifications (v1 RC Text)
+
+- [x] URL-key comparison rule is explicit: pre-redirect request URL, byte-exact key matching.
+- [x] Coverage metadata changes (`complete`/`prefixes` and prefix-list edits) require `site_rev` increment.
+- [x] Rollback semantics are explicit: rollback is still a content change; revisions never decrease.
+- [x] `rev` content scope explicitly includes important HTTP-level metadata (title/meta/canonical/OG/structured data).
+- [x] Manifest conditional requests guidance is explicit (`ETag`/`Last-Modified` with `If-None-Match`/`If-Modified-Since`).
+- [x] Digest-free trust note is explicit (no cryptographic audit path; soft evidence handling guidance).
+- [x] Consumer class scope is explicit (stateful periodic consumers are primary target; stateless one-shot caveat).
+
 ## Launch Now (No More Bikeshedding)
 
-- [ ] Publish minimal generator reference implementation (emits `/.well-known/pagedigest.json`).
-- [ ] Publish minimal consumer reference implementation (fetch, diff `site_rev`/`rev`, optional `digest` audit).
+- [x] Publish `test-vectors/` conformance bundle (valid, invalid, monotonicity, and audit match/mismatch cases).
+- [x] Publish minimal generator reference implementation (emits `/.well-known/pagedigest.json`).
+- [x] Publish minimal consumer reference implementation (fetch, diff `site_rev`/`rev`, optional `digest` audit).
 - [ ] Dogfood on one real publisher-controlled site (ideally `pagedigest.org`) and document generation method.
 - [ ] Document manifest cache policy choice (`Cache-Control` and rationale) from dogfood deployment.
 - [ ] Publish one producer case study with before/after crawl behavior or simulated savings.
 - [ ] Publish one real consumer integration that handles malformed manifests gracefully and skips unchanged URLs.
+- [ ] Ship one polished SSG plugin (Astro first), then expand to additional SSGs.
+- [ ] Publish a hygiene checker utility/report to detect manifest churn and audit-readiness issues.
 - [ ] Update README language to reflect shipped reality for each package as it goes live.
 - [ ] Keep not-yet-shipped pieces explicitly marked as planned in README.
 - [ ] File well-known URI suffix registration.

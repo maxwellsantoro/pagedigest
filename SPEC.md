@@ -23,6 +23,8 @@ This specification is intended for publishers of **public, primarily static HTML
 
 A publisher whose site falls outside this scope may still publish a partial manifest covering only the URLs that are in scope. URLs not listed in the manifest receive no protocol-defined treatment.
 
+`pagedigest` is primarily designed for stateful, periodic consumers that retain crawl state across runs (for example: search indexers, archival systems, mirrors, enterprise sync engines, and agent caches). Stateless one-shot fetchers benefit only if they persist per-site or per-URL state across sessions.
+
 ## 2. File location
 
 The manifest MUST be served at `/.well-known/pagedigest.json` on any domain that publishes a manifest.
@@ -30,6 +32,8 @@ The manifest MUST be served at `/.well-known/pagedigest.json` on any domain that
 The manifest SHOULD be served with `Content-Type: application/json` and SHOULD be cacheable by HTTP intermediaries (`Cache-Control: public, max-age=N` is recommended, with a value chosen by the publisher based on update frequency).
 
 Publishers should choose `max-age` conservatively enough that manifest caching does not defeat the publisher's desired change-detection latency.
+
+Publishers SHOULD support conditional requests (`ETag` and/or `Last-Modified`) on the manifest resource itself. Consumers polling the manifest SHOULD use `If-None-Match` and/or `If-Modified-Since` when available.
 
 ### 2.1 Discovery identifiers
 
@@ -40,6 +44,8 @@ This project intends to register the `pagedigest.json` well-known URI suffix.
 Until a short-form relation type is registered, publishers that advertise manifest discovery via HTTP `Link` headers SHOULD use an absolute-URI extension relation type, for example:
 
 `Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"`
+
+Publishers SHOULD advertise this discovery link on ordinary successful responses (for example, HTTP 200 responses for HTML pages), not only on rate-limit responses.
 
 ## 3. File format
 
@@ -84,6 +90,8 @@ An ISO 8601 timestamp indicating when this manifest was generated. All timestamp
 **`site_rev`** (required, integer)
 
 A monotonically increasing integer representing the overall state of the site. This value MUST increment whenever any URL covered by the manifest has its content changed, or when a URL is added to or removed from the `entries` map. It SHOULD NOT increment for unrelated operational events (cache flushes, deploys without content change, configuration updates).
+
+If `coverage` is present, changes to `coverage.mode` or to the `coverage.prefixes` list alter omission semantics and therefore MUST increment `site_rev`.
 
 Consumers use `site_rev` as a fast path: a consumer whose cached `site_rev` matches the manifest's `site_rev` knows that no URLs on the site have changed since its last visit and MAY skip processing the `entries` map entirely.
 
@@ -130,6 +138,8 @@ Consumers compare `rev` against their cached value for the same URL. If the mani
 #### 3.2.1 Semantics of `rev`
 
 For version 1, `rev` tracks material user-visible content changes for the URL's canonical representation.
+
+For version 1, this content scope includes important HTTP-level document metadata that materially affects interpretation or discovery (for example: `<title>`, meta description, canonical URL declarations, Open Graph / Twitter metadata, and structured data markup).
 
 `rev` SHOULD increment for:
 
@@ -202,6 +212,8 @@ A decrease typically indicates operational error: restoration from an older back
 
 If a publisher must reset their revision state — for example, after an incident that corrupted the prior state — the publisher SHOULD advance to a value strictly greater than the highest value they previously published, rather than resetting to zero. This preserves the monotonic invariant consumers rely on.
 
+A rollback to previously published content is still a content change event and therefore MUST increment `rev` (and `site_rev` as appropriate). Legitimate rollback does not permit decreasing revision integers.
+
 ### 4.1.1 Publisher implementation note
 
 Revision state is durable protocol state. Publishers should persist a high-water mark for `site_rev` and per-URL `rev` outside fragile CI/build numbering.
@@ -241,20 +253,11 @@ A consumer that respects `pagedigest` manifests follows this algorithm when craw
 
 1. Fetch `/.well-known/pagedigest.json`. If the fetch fails (404, timeout, invalid JSON), fall back to the consumer's default crawling behavior for this site.
 
-2. Compare the manifest's `site_rev` against the consumer's cached value for this site:
-   - If equal, no URLs have changed. Update the consumer's record of when the site was last checked, and terminate this crawl cycle without fetching individual URLs.
-   - If greater, proceed to step 3.
-   - If less than cached, treat the manifest as anomalous and fall back to default behavior.
+1. Compare the manifest's `site_rev` against the consumer's cached value for this site. If equal, no URLs have changed; update the consumer's last-checked record and terminate this crawl cycle without fetching individual URLs. If greater, proceed to step 1 below. If less than cached, treat the manifest as anomalous and fall back to default behavior.
 
-3. For each entry in the manifest's `entries` map:
-   - If the consumer has no cached `rev` for this URL, the URL is new. Fetch it and record the manifest's `rev`.
-   - If the manifest's `rev` is greater than the cached `rev`, the URL has changed. Fetch it and update the cached `rev`.
-   - If the manifest's `rev` equals the cached `rev`, the URL has not changed. Do not fetch it.
-   - If the manifest's `rev` is less than the cached `rev`, treat as anomalous and fall back to default behavior for this URL.
+1. For each entry in the manifest's `entries` map, entry lookup and cache comparison are keyed by the pre-redirect request URL, byte-exact against manifest keys. Consumers MUST NOT rewrite keys based on redirect targets. If the consumer has no cached `rev` for this URL, the URL is new: fetch it and record the manifest's `rev`. If the manifest's `rev` is greater than cached `rev`, the URL has changed: fetch it and update cached `rev`. If equal, do not fetch. If less than cached, treat as anomalous and fall back to default behavior for this URL.
 
-4. For URLs previously seen by the consumer that are no longer listed in the manifest:
-  - If `coverage.mode` is `complete`, omission is a positive signal that the URL is no longer part of the publisher's covered set and SHOULD be treated as removed from coverage.
-  - If `coverage.mode` is `prefixes` or `coverage` is absent, omission remains ambiguous and SHOULD be treated as "not described here" rather than implicitly unchanged.
+1. For URLs previously seen by the consumer that are no longer listed in the manifest: if `coverage.mode` is `complete`, omission is a positive signal that the URL is no longer part of the publisher's covered set and SHOULD be treated as removed from coverage. If `coverage.mode` is `prefixes` or `coverage` is absent, omission remains ambiguous and SHOULD be treated as "not described here" rather than implicitly unchanged.
 
 ### 5.2 Auditing
 
@@ -277,6 +280,8 @@ If a mismatch is observed immediately after a newly observed `generated` timesta
 Sustained mismatches or monotonicity violations are stronger evidence of unreliability than an isolated mismatch near a fresh publish event.
 
 A reasonable default audit rate is approximately 1% of manifest-derived skips, distributed randomly. Consumers are free to choose different rates based on their trust model and resource budget.
+
+When `digest` is omitted, consumers have no direct cryptographic audit path for rev inflation. If a consumer re-fetches after a `rev` bump and repeatedly observes content identical to its cached representation, the consumer MAY record this as soft evidence of unreliability and adjust trust or audit policy accordingly.
 
 ### 5.2.1 Manifest staleness
 
@@ -348,8 +353,8 @@ A manifest exposes the complete list of URLs covered on a site, including URLs t
 - RFC 3986: Uniform Resource Identifier (URI): Generic Syntax
 - RFC 8615: Well-Known Uniform Resource Identifiers (URIs)
 - RFC 8288: Web Linking
-- IANA Well-Known URIs registry: https://www.iana.org/assignments/well-known-uris/well-known-uris.xhtml
-- IANA Link Relation Types registry: https://www.iana.org/assignments/link-relations/link-relations.xhtml
+- IANA Well-Known URIs registry: <https://www.iana.org/assignments/well-known-uris/well-known-uris.xhtml>
+- IANA Link Relation Types registry: <https://www.iana.org/assignments/link-relations/link-relations.xhtml>
 
 ## Appendix A: URL-key conformance examples
 
@@ -359,7 +364,9 @@ Valid examples:
 
 - `/`
 - `/about`
+- `/about/`
 - `/docs/api?lang=en`
+- `/pricing?region=us`
 - `/posts/hello%20world`
 
 Invalid examples:
@@ -369,6 +376,12 @@ Invalid examples:
 - `https://example.com/foo` (absolute URL; keys are origin-relative)
 - `/foo?utm_source=x` when the query is a non-material tracking variant that the publisher should omit
 - `/posts/hello world` (raw space must be percent-encoded)
+
+Comparison examples:
+
+- `/about` and `/about/` are distinct keys. If both representations exist, consumers compare each key byte-exact as listed.
+- `/pricing?region=us` may be a material variant and can be listed as its own key when content differs materially.
+- `/pricing?utm_source=newsletter` is typically a tracking variant and should usually be omitted.
 
 ## Appendix B: Example manifests
 
