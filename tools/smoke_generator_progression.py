@@ -60,27 +60,27 @@ def main() -> int:
         run_generator(site_dir, manifest_path, state_path)
         m1 = load_manifest(manifest_path)
         assert_equal(m1["site_rev"], 1, "site_rev after first run")
-        assert_equal(m1["entries"]["/index.html"]["rev"], 1, "rev after first run")
+        assert_equal(m1["entries"]["/"]["rev"], 1, "rev after first run")
 
         # Second run: no change.
         run_generator(site_dir, manifest_path, state_path)
         m2 = load_manifest(manifest_path)
         assert_equal(m2["site_rev"], 1, "site_rev after no-change run")
-        assert_equal(m2["entries"]["/index.html"]["rev"], 1, "rev after no-change run")
+        assert_equal(m2["entries"]["/"]["rev"], 1, "rev after no-change run")
 
         # Third run: content change.
         file_path.write_text("hello v2\n", encoding="utf-8")
         run_generator(site_dir, manifest_path, state_path)
         m3 = load_manifest(manifest_path)
         assert_equal(m3["site_rev"], 2, "site_rev after content change")
-        assert_equal(m3["entries"]["/index.html"]["rev"], 2, "rev after content change")
+        assert_equal(m3["entries"]["/"]["rev"], 2, "rev after content change")
 
         # Fourth run: file removal.
         file_path.unlink()
         run_generator(site_dir, manifest_path, state_path)
         m4 = load_manifest(manifest_path)
         assert_equal(m4["site_rev"], 3, "site_rev after file removal")
-        if "/index.html" in m4["entries"]:
+        if "/" in m4["entries"]:
             raise AssertionError("removed file key should not exist in manifest entries")
 
     print("generator smoke progression passed")

@@ -16,6 +16,24 @@
       "kind": "valid"
     },
     {
+      "id": "valid-with-coverage-complete",
+      "file": "valid-with-coverage-complete.json",
+      "kind": "valid"
+    },
+    {
+      "id": "coverage-mode-change",
+      "files": [
+        "coverage-mode-change-prev.json",
+        "coverage-mode-change-next.json"
+      ],
+      "kind": "semantic-site-rev-bump"
+    },
+    {
+      "id": "url-key-variants",
+      "file": "url-key-variants.json",
+      "kind": "valid"
+    },
+    {
       "id": "invalid-missing-required",
       "file": "invalid-missing-required.json",
       "kind": "invalid-schema"

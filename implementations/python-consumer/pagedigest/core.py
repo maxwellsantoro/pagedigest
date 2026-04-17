@@ -60,6 +60,9 @@ def fetch(
         if field not in manifest:
             return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), f"missing-{field}")
 
+    if manifest.get("version") != 1:
+        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "unsupported-version")
+
     if not isinstance(manifest.get("site_rev"), int):
         return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "invalid-site-rev")
     if not isinstance(manifest.get("entries"), dict):
@@ -152,11 +155,19 @@ def check_site(
     cached_site_rev: int | None,
     cached_revs: dict[str, int] | None,
     timeout: int = 10,
+    etag: str | None = None,
+    last_modified: str | None = None,
     sample_audit_rate: float = 0.0,
     session: requests.Session | None = None,
 ) -> dict[str, Any]:
     """High-level convenience API: fetch + diff + optional sampled audit plan."""
-    result = fetch(base_url, timeout=timeout, session=session)
+    result = fetch(
+        base_url,
+        timeout=timeout,
+        etag=etag,
+        last_modified=last_modified,
+        session=session,
+    )
     if not result.ok:
         return {
             "fallback": True,

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "generated": "2026-04-17T12:45:00Z",
+  "site_rev": 18,
+  "entries": {
+    "/about": {
+      "rev": 1
+    },
+    "/about/": {
+      "rev": 2
+    },
+    "/pricing?region=us": {
+      "rev": 1
+    },
+    "/posts/hello%20world": {
+      "rev": 3
+    }
+  }
+}

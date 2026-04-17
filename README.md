@@ -108,12 +108,13 @@ Python:
 ```python
 from pagedigest import check_site
 
-changed = check_site(
+decision = check_site(
     "https://example.com",
     cached_site_rev=18292,
     cached_revs={"/": 46, "/about": 12}
 )
-# Returns ["/"] — only the homepage changed since last crawl
+# Returns a decision object with changed/new/unchanged URL lists and fallback metadata
+# Example: decision["changed"] could be ["/"] when only the homepage moved
 ```
 
 Planned API shape: convenience wrapper `check_site`; lower-level API `fetch`, `diff`, `audit`. Approximate implementation size is ~100 lines with a single runtime dependency: `requests`.

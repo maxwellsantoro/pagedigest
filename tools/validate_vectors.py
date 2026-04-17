@@ -69,6 +69,27 @@ def assert_audit_case(manifest_path: Path, body_path: Path, expect_match: bool) 
         raise ValueError("expected digest mismatch but got match")
 
 
+def assert_coverage_mode_change_bumps_site_rev(prev_path: Path, next_path: Path) -> None:
+    prev = read_json(prev_path)
+    nxt = read_json(next_path)
+
+    prev_mode = (prev.get("coverage") or {}).get("mode")
+    next_mode = (nxt.get("coverage") or {}).get("mode")
+    if prev_mode == next_mode:
+        raise ValueError("expected coverage mode to change between fixtures")
+
+    if nxt["site_rev"] <= prev["site_rev"]:
+        raise ValueError("expected site_rev to increase when coverage semantics change")
+
+
+def assert_url_key_variants(path: Path) -> None:
+    data = read_json(path)
+    entries = data.get("entries") or {}
+    for required in ("/about", "/about/", "/pricing?region=us", "/posts/hello%20world"):
+        if required not in entries:
+            raise ValueError(f"expected key missing from url-key-variants fixture: {required}")
+
+
 def main() -> int:
     index = read_json(VECTORS / "index.json")
     case_ids = {c["id"] for c in index["cases"]}
@@ -76,6 +97,9 @@ def main() -> int:
         "valid-minimal",
         "valid-with-digest",
         "valid-partial-prefix",
+        "valid-with-coverage-complete",
+        "coverage-mode-change",
+        "url-key-variants",
         "invalid-missing-required",
         "invalid-url-key-fragment",
         "violation-monotonicity",
@@ -89,6 +113,8 @@ def main() -> int:
     validate_required_fields(VECTORS / "valid-minimal.json")
     validate_required_fields(VECTORS / "valid-with-digest.json")
     validate_required_fields(VECTORS / "valid-partial-prefix.json")
+    validate_required_fields(VECTORS / "valid-with-coverage-complete.json")
+    validate_required_fields(VECTORS / "url-key-variants.json")
 
     assert_invalid_missing_required(VECTORS / "invalid-missing-required.json")
     assert_invalid_key_fragment(VECTORS / "invalid-url-key-fragment.json")
@@ -96,6 +122,11 @@ def main() -> int:
         VECTORS / "violation-monotonicity-prev.json",
         VECTORS / "violation-monotonicity-next.json",
     )
+    assert_coverage_mode_change_bumps_site_rev(
+        VECTORS / "coverage-mode-change-prev.json",
+        VECTORS / "coverage-mode-change-next.json",
+    )
+    assert_url_key_variants(VECTORS / "url-key-variants.json")
     assert_audit_case(
         VECTORS / "audit-match" / "manifest.json",
         VECTORS / "audit-match" / "page-body.bin",

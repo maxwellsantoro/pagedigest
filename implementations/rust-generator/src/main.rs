@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use chrono::Utc;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use walkdir::WalkDir;
@@ -20,13 +20,32 @@ struct Args {
     #[arg(long)]
     output: Option<PathBuf>,
 
-    /// Persistent state file path. Defaults to sibling pagedigest-state.json next to output manifest.
+    /// Persistent state file path. Defaults to <input_dir_parent>/.pagedigest/state.json.
     #[arg(long)]
     state: Option<PathBuf>,
+
+    /// Route style for index files.
+    #[arg(long, value_enum, default_value_t = IndexStyle::TrailingSlash)]
+    index_style: IndexStyle,
+
+    /// Comma-separated extension allowlist for files included in entries.
+    #[arg(long, value_delimiter = ',', default_values_t = [
+        String::from("html"),
+        String::from("htm"),
+        String::from("md"),
+        String::from("markdown"),
+    ])]
+    include_ext: Vec<String>,
 
     /// Include per-entry sha256 digest values.
     #[arg(long, default_value_t = true)]
     with_digest: bool,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+enum IndexStyle {
+    TrailingSlash,
+    File,
 }
 
 #[derive(Debug, Serialize)]
@@ -65,15 +84,12 @@ fn main() -> Result<()> {
         .output
         .unwrap_or_else(|| input_dir.join(".well-known").join("pagedigest.json"));
 
-    let state_path = args.state.unwrap_or_else(|| {
-        output_path
-            .parent()
-            .unwrap_or(Path::new("."))
-            .join("pagedigest-state.json")
-    });
+    let state_path = args
+        .state
+        .unwrap_or_else(|| input_dir.parent().unwrap_or(Path::new(".")).join(".pagedigest").join("state.json"));
 
     let previous = load_state(&state_path)?;
-    let current_digests = collect_digests(&input_dir)?;
+    let current_digests = collect_digests(&input_dir, args.index_style, &args.include_ext)?;
 
     let mut any_change = false;
     let mut entries = BTreeMap::new();
@@ -148,7 +164,7 @@ fn load_state(path: &Path) -> Result<State> {
     Ok(state)
 }
 
-fn collect_digests(root: &Path) -> Result<BTreeMap<String, String>> {
+fn collect_digests(root: &Path, index_style: IndexStyle, include_ext: &[String]) -> Result<BTreeMap<String, String>> {
     let mut out = BTreeMap::new();
 
     for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
@@ -161,17 +177,45 @@ fn collect_digests(root: &Path) -> Result<BTreeMap<String, String>> {
             continue;
         }
 
+        if !should_include(path, include_ext) {
+            continue;
+        }
+
         let rel = path
             .strip_prefix(root)
             .with_context(|| format!("failed to strip root prefix for {}", path.display()))?;
 
-        let url = format!("/{}", rel.to_string_lossy().replace('\\', "/"));
+        let url = rel_to_url_key(rel, index_style);
         let bytes = fs::read(path).with_context(|| format!("failed reading {}", path.display()))?;
         let digest = sha256_hex(&bytes);
         out.insert(url, digest);
     }
 
     Ok(out)
+}
+
+fn should_include(path: &Path, include_ext: &[String]) -> bool {
+    match path.extension().and_then(|e| e.to_str()) {
+        Some(ext) => include_ext.iter().any(|allowed| allowed.eq_ignore_ascii_case(ext)),
+        None => false,
+    }
+}
+
+fn rel_to_url_key(rel: &Path, index_style: IndexStyle) -> String {
+    let rel_str = rel.to_string_lossy().replace('\\', "/");
+
+    match index_style {
+        IndexStyle::File => format!("/{rel_str}"),
+        IndexStyle::TrailingSlash => {
+            if rel_str == "index.html" {
+                "/".to_string()
+            } else if rel_str.ends_with("/index.html") {
+                format!("/{}/", rel_str.trim_end_matches("/index.html"))
+            } else {
+                format!("/{rel_str}")
+            }
+        }
+    }
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -222,8 +266,21 @@ mod tests {
             .write_all(b"{}")
             .expect("write manifest fixture");
 
-        let digests = collect_digests(root).expect("collect digests");
-        assert!(digests.contains_key("/index.html"));
+        let include_ext = vec!["html".to_string()];
+        let digests = collect_digests(root, IndexStyle::TrailingSlash, &include_ext).expect("collect digests");
+        assert!(digests.contains_key("/"));
         assert!(!digests.contains_key("/.well-known/pagedigest.json"));
+    }
+
+    #[test]
+    fn rel_to_url_key_trailing_slash_style_maps_index_routes() {
+        assert_eq!(
+            rel_to_url_key(Path::new("index.html"), IndexStyle::TrailingSlash),
+            "/"
+        );
+        assert_eq!(
+            rel_to_url_key(Path::new("about/index.html"), IndexStyle::TrailingSlash),
+            "/about/"
+        );
     }
 }

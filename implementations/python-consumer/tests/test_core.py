@@ -2,14 +2,28 @@ import hashlib
 import unittest
 from typing import Any
 
-from pagedigest.core import audit, diff
+from pagedigest.core import audit, diff, fetch
 
 
 class StubResponse:
-    def __init__(self, status_code: int, content: bytes = b"", headers: dict[str, str] | None = None):
+    def __init__(
+        self,
+        status_code: int,
+        content: bytes = b"",
+        headers: dict[str, str] | None = None,
+        json_data: Any | None = None,
+        json_error: Exception | None = None,
+    ):
         self.status_code = status_code
         self.content = content
         self.headers = headers or {}
+        self._json_data = json_data
+        self._json_error = json_error
+
+    def json(self) -> Any:
+        if self._json_error is not None:
+            raise self._json_error
+        return self._json_data
 
 
 class StubSession:
@@ -21,6 +35,60 @@ class StubSession:
 
 
 class CoreTests(unittest.TestCase):
+    def test_fetch_rejects_unsupported_version(self) -> None:
+        response = StubResponse(
+            status_code=200,
+            json_data={
+                "version": 2,
+                "generated": "2026-04-17T12:00:00Z",
+                "site_rev": 1,
+                "entries": {},
+            },
+        )
+        out = fetch("https://example.com", session=StubSession(response))
+        self.assertFalse(out.ok)
+        self.assertEqual(out.error, "unsupported-version")
+
+    def test_fetch_handles_invalid_json(self) -> None:
+        response = StubResponse(status_code=200, json_error=ValueError("bad json"))
+        out = fetch("https://example.com", session=StubSession(response))
+        self.assertFalse(out.ok)
+        self.assertEqual(out.error, "invalid-json")
+
+    def test_fetch_handles_invalid_site_rev(self) -> None:
+        response = StubResponse(
+            status_code=200,
+            json_data={
+                "version": 1,
+                "generated": "2026-04-17T12:00:00Z",
+                "site_rev": "one",
+                "entries": {},
+            },
+        )
+        out = fetch("https://example.com", session=StubSession(response))
+        self.assertFalse(out.ok)
+        self.assertEqual(out.error, "invalid-site-rev")
+
+    def test_fetch_handles_missing_required_field(self) -> None:
+        response = StubResponse(
+            status_code=200,
+            json_data={
+                "version": 1,
+                "generated": "2026-04-17T12:00:00Z",
+                "site_rev": 1,
+            },
+        )
+        out = fetch("https://example.com", session=StubSession(response))
+        self.assertFalse(out.ok)
+        self.assertEqual(out.error, "missing-entries")
+
+    def test_fetch_returns_not_modified_signal(self) -> None:
+        response = StubResponse(status_code=304, headers={"ETag": "abc"})
+        out = fetch("https://example.com", session=StubSession(response))
+        self.assertTrue(out.ok)
+        self.assertEqual(out.status_code, 304)
+        self.assertEqual(out.etag, "abc")
+
     def test_diff_detects_changed_and_new_urls(self) -> None:
         manifest = {
             "version": 1,
