@@ -259,6 +259,13 @@ A manifest exposes the complete list of URLs covered on a site, including URLs t
 
 - `sitemap.xml` governs URL discovery. `pagedigest` governs change detection. A crawler can use `sitemap.xml` to find URLs and `pagedigest` to decide which to fetch.
 
+## 9. References
+
+- RFC 3986: Uniform Resource Identifier (URI): Generic Syntax
+- RFC 8615: Well-Known Uniform Resource Identifiers (URIs)
+- RFC 8288: Web Linking
+- IANA Well-Known URIs registry: https://www.iana.org/assignments/well-known-uris/well-known-uris.xhtml
+- IANA Link Relation Types registry: https://www.iana.org/assignments/link-relations/link-relations.xhtml
 ## Appendix A: Example manifests
 
 ### A.1 Minimal manifest
