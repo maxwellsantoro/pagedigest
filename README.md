@@ -105,7 +105,7 @@ If you use a static site generator, a plugin wires this into your build:
 # Astro
 npm install @pagedigest/astro
 
-# Hugo, Jekyll, Eleventy: see plugins/
+# Hugo, Jekyll, Eleventy integrations are planned.
 ```
 
 Your build now emits `/.well-known/pagedigest.json`. You're done.
@@ -231,4 +231,4 @@ Run all local checks with one command:
 
 - **Publishers:** Install it, measure your bot traffic before and after, publish the numbers. Real adoption data is the most persuasive thing this project can have.
 
-- **SSG maintainers:** Plugins for other static site generators are welcome. See `plugins/` for the existing ones as a template.
+- **SSG maintainers:** Plugins for static site generators are welcome. The Astro integration is planned first; Hugo, Jekyll, and Eleventy can follow the same manifest-generation contract.

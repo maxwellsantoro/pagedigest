@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import urljoin
 
 import requests
+from pagedigest import resolve_url_key, validate_manifest
 
 
 @dataclass
@@ -39,11 +40,16 @@ def fetch_manifest(url: str, timeout: int) -> dict[str, Any]:
         raise ValueError("manifest must be a JSON object")
     if not isinstance(data.get("entries"), dict):
         raise ValueError("manifest missing object entries")
+    if (validation_error := validate_manifest(data)) is not None:
+        raise ValueError(f"invalid manifest: {validation_error}")
     return data
 
 
 def audit_entry(base_url: str, path: str, expected_digest: str, timeout: int) -> AuditResult:
-    url = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+    try:
+        url = resolve_url_key(base_url, path)
+    except ValueError as exc:
+        return AuditResult(path, "inconclusive", str(exc))
     try:
         r = requests.get(
             url,

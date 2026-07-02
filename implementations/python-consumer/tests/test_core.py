@@ -1,10 +1,27 @@
 import hashlib
+import importlib.util
 import json
 import random
+import sys
 import unittest
+from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
-from pagedigest.core import audit, check_site, diff, fetch, validate_manifest
+from pagedigest.core import audit, check_site, diff, fetch, resolve_url_key, validate_manifest
+
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def load_tool(name: str) -> Any:
+    path = ROOT / "tools" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 class StubResponse:
@@ -36,8 +53,11 @@ class StubResponse:
 class StubSession:
     def __init__(self, response: StubResponse):
         self._response = response
+        self.last_url: str | None = None
 
     def get(self, *args: Any, **kwargs: Any) -> StubResponse:
+        if args:
+            self.last_url = args[0]
         return self._response
 
 
@@ -214,6 +234,46 @@ class CoreTests(unittest.TestCase):
             }
         )
         self.assertIsNone(validate_manifest(manifest))
+
+    def test_resolve_url_key_keeps_valid_key_on_origin(self) -> None:
+        self.assertEqual(
+            resolve_url_key("https://example.com/base", "/pricing?region=us"),
+            "https://example.com/pricing?region=us",
+        )
+
+    def test_resolve_url_key_rejects_origin_escape(self) -> None:
+        with self.assertRaisesRegex(ValueError, "url-key-origin-escape"):
+            resolve_url_key("https://example.com", "//127.0.0.1/admin")
+
+    def test_audit_does_not_request_embedded_absolute_url(self) -> None:
+        session = StubSession(StubResponse(status_code=200, content=b"internal"))
+        out = audit(
+            "https://example.com",
+            "/http://127.0.0.1:8000/admin",
+            "sha256:" + "0" * 64,
+            session=session,
+        )
+        self.assertEqual(session.last_url, "https://example.com/http://127.0.0.1:8000/admin")
+        self.assertEqual(out["result"], "mismatch")
+
+    def test_verifier_keeps_embedded_absolute_url_on_origin(self) -> None:
+        verifier = load_tool("verify_over_wire_digests")
+        response = StubResponse(status_code=200, content=b"publisher path")
+        with patch.object(verifier.requests, "get", return_value=response) as request:
+            verifier.audit_entry(
+                "https://example.com", "/http://127.0.0.1/admin", "sha256:" + "0" * 64, 10
+            )
+        self.assertEqual(request.call_args.args[0], "https://example.com/http://127.0.0.1/admin")
+
+    def test_reconciler_rejects_scheme_relative_origin_escape(self) -> None:
+        reconciler = load_tool("reconcile_served_digests")
+        with patch.object(reconciler.requests, "get") as request:
+            digest, error = reconciler.fetch_identity_digest(
+                "https://example.com", "//127.0.0.1/admin", 10
+            )
+        self.assertIsNone(digest)
+        self.assertEqual(error, "url-key-origin-escape")
+        request.assert_not_called()
 
     def test_diff_detects_changed_and_new_urls(self) -> None:
         manifest = {

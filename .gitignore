@@ -1,4 +1,5 @@
 .vscode/tasks.json
+.wrangler/
 implementations/rust-generator/target/
 **/__pycache__/
 .pytest_cache/

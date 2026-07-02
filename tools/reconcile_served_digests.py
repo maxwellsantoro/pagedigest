@@ -30,9 +30,9 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urljoin
 
 import requests
+from pagedigest import resolve_url_key, validate_manifest
 
 
 @dataclass
@@ -44,7 +44,10 @@ class Reconciliation:
 
 
 def fetch_identity_digest(base_url: str, path: str, timeout: int) -> tuple[str | None, str]:
-    url = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+    try:
+        url = resolve_url_key(base_url, path)
+    except ValueError as exc:
+        return None, str(exc)
     try:
         r = requests.get(
             url,
@@ -109,6 +112,10 @@ def main() -> int:
 
     manifest_path = Path(args.manifest)
     manifest = json.loads(manifest_path.read_text())
+    if not isinstance(manifest, dict):
+        raise SystemExit(f"{manifest_path} must contain a JSON object")
+    if (validation_error := validate_manifest(manifest)) is not None:
+        raise SystemExit(f"{manifest_path} is invalid: {validation_error}")
     entries = manifest.get("entries")
     if not isinstance(entries, dict):
         raise SystemExit(f"{manifest_path} has no entries object")

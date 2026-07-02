@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import requests
 
@@ -64,6 +64,23 @@ def _validate_url_key(key: Any) -> str | None:
             return "invalid-url-key-unencoded"
         index += 1
     return None
+
+
+def resolve_url_key(base_url: str, url_key: str) -> str:
+    """Resolve a manifest key without allowing it to escape the base origin."""
+    if (validation_error := _validate_url_key(url_key)) is not None:
+        raise ValueError(validation_error)
+
+    base = urlsplit(base_url)
+    if base.scheme.lower() not in {"http", "https"} or not base.netloc:
+        raise ValueError("invalid-base-url")
+
+    origin = urlunsplit((base.scheme, base.netloc, "/", "", ""))
+    resolved = urljoin(origin, url_key)
+    target = urlsplit(resolved)
+    if target.scheme.lower() != base.scheme.lower() or target.netloc.lower() != base.netloc.lower():
+        raise ValueError("url-key-origin-escape")
+    return resolved
 
 
 def _validate_timestamp(value: Any, field: str) -> str | None:
@@ -280,7 +297,10 @@ def diff(
 def audit(base_url: str, url_key: str, expected_digest: str, timeout: int = 10, session: requests.Session | None = None) -> dict[str, Any]:
     """Audit a digest claim using identity-encoding fetch semantics."""
     s = session or requests.Session()
-    url = urljoin(base_url.rstrip("/") + "/", url_key.lstrip("/"))
+    try:
+        url = resolve_url_key(base_url, url_key)
+    except ValueError as exc:
+        return {"result": "inconclusive", "reason": str(exc)}
     try:
         r = s.get(url, headers={"Accept-Encoding": "identity"}, timeout=timeout, allow_redirects=False)
     except requests.RequestException as exc:
