@@ -43,7 +43,7 @@ For a 10,000-page site that changes 20 pages a week, a consumer makes **one mani
 
 Reference implementations ship in this repo. Package registries and SSG plugins are **planned** — see [ROADMAP.md](./ROADMAP.md). RC adopters should not expect breaking field or semantics changes before v1.0.
 
-Live dogfood: [pagedigest.org](https://pagedigest.org). Sibling project: [dotrepo](https://dotrepo.org) ([ecosystem notes](./docs/ecosystem.md)).
+Live dogfood: [pagedigest.org](https://pagedigest.org). Source: [github.com/maxwellsantoro/pagedigest](https://github.com/maxwellsantoro/pagedigest). Sibling project: [dotrepo](https://dotrepo.org) ([ecosystem notes](./docs/ecosystem.md)).
 
 ## Use from this repo (today)
 

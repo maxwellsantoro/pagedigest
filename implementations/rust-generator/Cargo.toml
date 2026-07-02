@@ -3,6 +3,9 @@ name = "pagedigest-generator"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+description = "Minimal pagedigest manifest generator"
+homepage = "https://pagedigest.org"
+repository = "https://github.com/maxwellsantoro/pagedigest"
 
 [dependencies]
 anyhow = "1.0"
