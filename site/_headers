@@ -4,17 +4,14 @@
   Referrer-Policy: strict-origin-when-cross-origin
 
 /
-  Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
   Content-Type: text/html; charset=utf-8
   Cache-Control: public, max-age=300, must-revalidate
 
 /rel/
-  Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
   Content-Type: text/html; charset=utf-8
   Cache-Control: public, max-age=300, must-revalidate
 
 /404.html
-  Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
   Content-Type: text/html; charset=utf-8
   Cache-Control: public, max-age=300, must-revalidate
 
