@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import random
+import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urljoin
 
@@ -9,6 +13,13 @@ import requests
 
 
 MANIFEST_PATH = "/.well-known/pagedigest.json"
+DEFAULT_MAX_MANIFEST_BYTES = 10 * 1024 * 1024
+URL_KEY_PATTERN = re.compile(r"^/([^#]*)?$")
+DIGEST_PATTERN = re.compile(r"^sha256:[a-f0-9]{64}$")
+TIMESTAMP_PATTERN = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+00:00)$"
+)
+UNRESERVED = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 
 
 @dataclass
@@ -21,12 +32,139 @@ class FetchResult:
     error: str | None
 
 
+def _is_non_negative_int(value: Any) -> bool:
+    return type(value) is int and value >= 0
+
+
+def _valid_percent_encoding(value: str, index: int) -> bool:
+    if index + 2 >= len(value):
+        return False
+    return all(ch in "0123456789ABCDEFabcdef" for ch in value[index + 1 : index + 3])
+
+
+def _validate_url_key(key: Any) -> str | None:
+    if not isinstance(key, str):
+        return "invalid-url-key-type"
+    if not URL_KEY_PATTERN.match(key):
+        return "invalid-url-key-pattern"
+    if " " in key:
+        return "invalid-url-key-space"
+
+    index = 0
+    while index < len(key):
+        ch = key[index]
+        if ch == "%":
+            if not _valid_percent_encoding(key, index):
+                return "invalid-url-key-encoding"
+            index += 3
+            continue
+        if ord(ch) > 127:
+            return "invalid-url-key-unencoded"
+        if ch not in UNRESERVED and ch not in {"/", "?", "&", "=", ":", "@", "!", "$", "'", "(", ")", "*", "+", ",", ";"}:
+            return "invalid-url-key-unencoded"
+        index += 1
+    return None
+
+
+def _validate_timestamp(value: Any, field: str) -> str | None:
+    if not isinstance(value, str) or not TIMESTAMP_PATTERN.match(value):
+        return f"invalid-{field}"
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return f"invalid-{field}"
+    if parsed.utcoffset() != timezone.utc.utcoffset(parsed):
+        return f"invalid-{field}"
+    return None
+
+
+def _validate_coverage(coverage: Any) -> str | None:
+    if not isinstance(coverage, dict):
+        return "invalid-coverage-type"
+
+    mode = coverage.get("mode")
+    if mode == "complete":
+        return None
+    if mode == "prefixes":
+        prefixes = coverage.get("prefixes")
+        if not isinstance(prefixes, list) or not prefixes:
+            return "invalid-coverage-prefixes"
+        for prefix in prefixes:
+            if not isinstance(prefix, str) or not prefix.startswith("/"):
+                return "invalid-coverage-prefix"
+        return None
+    return "invalid-coverage-mode"
+
+
+def validate_manifest(manifest: dict[str, Any]) -> str | None:
+    """Return an error code when the manifest is structurally invalid."""
+    for field in ("version", "generated", "site_rev", "entries"):
+        if field not in manifest:
+            return f"missing-{field}"
+
+    if manifest.get("version") != 1:
+        return "unsupported-version"
+
+    if (err := _validate_timestamp(manifest.get("generated"), "generated")) is not None:
+        return err
+
+    if not _is_non_negative_int(manifest.get("site_rev")):
+        return "invalid-site-rev"
+
+    entries = manifest.get("entries")
+    if not isinstance(entries, dict):
+        return "invalid-entries"
+
+    if "coverage" in manifest:
+        if (err := _validate_coverage(manifest.get("coverage"))) is not None:
+            return err
+
+    for url_key, entry in entries.items():
+        if (err := _validate_url_key(url_key)) is not None:
+            return err
+        if not isinstance(entry, dict):
+            return "invalid-entry-type"
+        if not _is_non_negative_int(entry.get("rev")):
+            return "invalid-rev"
+        if "digest" in entry:
+            digest = entry.get("digest")
+            if not isinstance(digest, str) or not DIGEST_PATTERN.match(digest):
+                return "invalid-digest"
+        if "modified" in entry:
+            if (err := _validate_timestamp(entry.get("modified"), "modified")) is not None:
+                return err
+
+    return None
+
+
+def _read_manifest_body(response: requests.Response, max_bytes: int) -> tuple[bytes | None, str | None]:
+    content_length = response.headers.get("Content-Length")
+    if content_length is not None:
+        try:
+            if int(content_length) > max_bytes:
+                return None, "manifest-too-large"
+        except ValueError:
+            return None, "invalid-content-length"
+
+    chunks: list[bytes] = []
+    total = 0
+    for chunk in response.iter_content(chunk_size=65536):
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > max_bytes:
+            return None, "manifest-too-large"
+        chunks.append(chunk)
+    return b"".join(chunks), None
+
+
 def fetch(
     base_url: str,
     timeout: int = 10,
     etag: str | None = None,
     last_modified: str | None = None,
     session: requests.Session | None = None,
+    max_bytes: int = DEFAULT_MAX_MANIFEST_BYTES,
 ) -> FetchResult:
     """Fetch the pagedigest manifest with graceful fallback semantics."""
     s = session or requests.Session()
@@ -38,7 +176,7 @@ def fetch(
 
     url = urljoin(base_url.rstrip("/") + "/", MANIFEST_PATH.lstrip("/"))
     try:
-        r = s.get(url, headers=headers, timeout=timeout)
+        r = s.get(url, headers=headers, timeout=timeout, stream=True)
     except requests.RequestException as exc:
         return FetchResult(False, None, None, None, None, str(exc))
 
@@ -48,25 +186,21 @@ def fetch(
     if r.status_code != 200:
         return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "manifest-unavailable")
 
+    body, size_error = _read_manifest_body(r, max_bytes)
+    if size_error is not None:
+        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), size_error)
+
+    assert body is not None
     try:
-        manifest = r.json()
+        manifest = json.loads(body)
     except ValueError:
         return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "invalid-json")
 
     if not isinstance(manifest, dict):
         return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "invalid-manifest-type")
 
-    for field in ("version", "generated", "site_rev", "entries"):
-        if field not in manifest:
-            return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), f"missing-{field}")
-
-    if manifest.get("version") != 1:
-        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "unsupported-version")
-
-    if not isinstance(manifest.get("site_rev"), int):
-        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "invalid-site-rev")
-    if not isinstance(manifest.get("entries"), dict):
-        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "invalid-entries")
+    if (validation_error := validate_manifest(manifest)) is not None:
+        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), validation_error)
 
     return FetchResult(True, r.status_code, manifest, r.headers.get("ETag"), r.headers.get("Last-Modified"), None)
 
@@ -117,11 +251,7 @@ def diff(
     anomalies: list[dict[str, Any]] = []
 
     for url_key, entry in entries.items():
-        rev = entry.get("rev") if isinstance(entry, dict) else None
-        if not isinstance(rev, int):
-            anomalies.append({"url": url_key, "reason": "invalid-rev"})
-            continue
-
+        rev = entry.get("rev")
         prev = cached_revs.get(url_key)
         if prev is None:
             new.append(url_key)
@@ -134,7 +264,6 @@ def diff(
 
     removed = sorted(set(cached_revs) - set(entries))
     if removed and coverage_mode != "complete":
-        # Outside complete coverage mode, omission is ambiguous.
         removed = []
 
     return {
@@ -168,6 +297,34 @@ def audit(base_url: str, url_key: str, expected_digest: str, timeout: int = 10, 
     return {"result": "mismatch", "computed": computed, "expected": expected_digest}
 
 
+def _sample_audit_candidates(
+    manifest: dict[str, Any],
+    unchanged: list[str],
+    sample_audit_rate: float,
+    rng: random.Random | None = None,
+) -> list[dict[str, str]]:
+    if sample_audit_rate <= 0:
+        return []
+
+    entries = manifest["entries"]
+    pool: list[dict[str, str]] = []
+    for url_key in unchanged:
+        entry = entries.get(url_key)
+        if not isinstance(entry, dict):
+            continue
+        digest = entry.get("digest")
+        if isinstance(digest, str) and DIGEST_PATTERN.match(digest):
+            pool.append({"url": url_key, "digest": digest})
+
+    if not pool:
+        return []
+
+    sample_size = max(1, int(len(pool) * sample_audit_rate)) if sample_audit_rate < 1 else len(pool)
+    sample_size = min(sample_size, len(pool))
+    picker = rng or random.Random()
+    return picker.sample(pool, sample_size)
+
+
 def check_site(
     base_url: str,
     cached_site_rev: int | None,
@@ -177,6 +334,8 @@ def check_site(
     last_modified: str | None = None,
     sample_audit_rate: float = 0.0,
     session: requests.Session | None = None,
+    max_bytes: int = DEFAULT_MAX_MANIFEST_BYTES,
+    rng: random.Random | None = None,
 ) -> dict[str, Any]:
     """High-level convenience API: fetch + diff + optional sampled audit plan."""
     result = fetch(
@@ -185,6 +344,7 @@ def check_site(
         etag=etag,
         last_modified=last_modified,
         session=session,
+        max_bytes=max_bytes,
     )
     if not result.ok:
         return {
@@ -207,10 +367,10 @@ def check_site(
     assert result.manifest is not None
     decisions = diff(result.manifest, cached_site_rev, cached_revs)
 
-    if decisions.get("site_anomaly"):
+    if decisions.get("site_anomaly") or decisions.get("anomalies"):
         return {
             "fallback": True,
-            "error": decisions["site_anomaly"],
+            "error": decisions.get("site_anomaly") or "manifest-anomaly",
             "status_code": result.status_code,
             "etag": result.etag,
             "last_modified": result.last_modified,
@@ -218,13 +378,12 @@ def check_site(
             "anomalies": decisions.get("anomalies", []),
         }
 
-    # This minimal reference returns an audit candidate list; caller can decide sampling policy.
-    audit_candidates = []
-    if sample_audit_rate > 0:
-        for url_key, entry in result.manifest["entries"].items():
-            digest = entry.get("digest") if isinstance(entry, dict) else None
-            if isinstance(digest, str):
-                audit_candidates.append({"url": url_key, "digest": digest})
+    audit_candidates = _sample_audit_candidates(
+        result.manifest,
+        decisions["unchanged"],
+        sample_audit_rate,
+        rng=rng,
+    )
 
     decisions.update(
         {

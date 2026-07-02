@@ -1,13 +1,27 @@
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use chrono::Utc;
 use clap::{Parser, ValueEnum};
+use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use walkdir::WalkDir;
+
+const PATH_SEGMENT_ENCODE_SET: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'#')
+    .add(b'<')
+    .add(b'>')
+    .add(b'`')
+    .add(b'?')
+    .add(b'{')
+    .add(b'}')
+    .add(b'/');
 
 #[derive(Parser, Debug)]
 #[command(name = "pagedigest-generator")]
@@ -38,7 +52,7 @@ struct Args {
     include_ext: Vec<String>,
 
     /// Include per-entry sha256 digest values.
-    #[arg(long, default_value_t = true)]
+    #[arg(long, default_value_t = false)]
     with_digest: bool,
 }
 
@@ -132,8 +146,6 @@ fn main() -> Result<()> {
         entries,
     };
 
-    write_json(&output_path, &manifest)?;
-
     let next_state = State {
         site_rev,
         entries: current_digests
@@ -144,7 +156,9 @@ fn main() -> Result<()> {
             })
             .collect(),
     };
-    write_json(&state_path, &next_state)?;
+
+    write_json_atomic(&state_path, &next_state)?;
+    write_json_atomic(&output_path, &manifest)?;
 
     println!("wrote {}", output_path.display());
     println!("state {}", state_path.display());
@@ -167,7 +181,8 @@ fn load_state(path: &Path) -> Result<State> {
 fn collect_digests(root: &Path, index_style: IndexStyle, include_ext: &[String]) -> Result<BTreeMap<String, String>> {
     let mut out = BTreeMap::new();
 
-    for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(root) {
+        let entry = entry.with_context(|| format!("failed walking {}", root.display()))?;
         let path = entry.path();
         if !entry.file_type().is_file() {
             continue;
@@ -185,7 +200,11 @@ fn collect_digests(root: &Path, index_style: IndexStyle, include_ext: &[String])
             .strip_prefix(root)
             .with_context(|| format!("failed to strip root prefix for {}", path.display()))?;
 
-        let url = rel_to_url_key(rel, index_style);
+        let url = rel_to_url_key(rel, index_style)?;
+        if out.contains_key(&url) {
+            bail!("duplicate URL key {url} from {}", path.display());
+        }
+
         let bytes = fs::read(path).with_context(|| format!("failed reading {}", path.display()))?;
         let digest = sha256_hex(&bytes);
         out.insert(url, digest);
@@ -201,21 +220,34 @@ fn should_include(path: &Path, include_ext: &[String]) -> bool {
     }
 }
 
-fn rel_to_url_key(rel: &Path, index_style: IndexStyle) -> String {
-    let rel_str = rel.to_string_lossy().replace('\\', "/");
+fn encode_path_segment(segment: &str) -> String {
+    utf8_percent_encode(segment, PATH_SEGMENT_ENCODE_SET).to_string()
+}
 
-    match index_style {
-        IndexStyle::File => format!("/{rel_str}"),
+fn rel_to_url_key(rel: &Path, index_style: IndexStyle) -> Result<String> {
+    let rel_str = rel.to_string_lossy().replace('\\', "/");
+    let segments: Vec<&str> = rel_str.split('/').collect();
+    let encoded_segments: Vec<String> = segments.iter().map(|segment| encode_path_segment(segment)).collect();
+    let encoded_rel = encoded_segments.join("/");
+
+    let url = match index_style {
+        IndexStyle::File => format!("/{encoded_rel}"),
         IndexStyle::TrailingSlash => {
-            if rel_str == "index.html" {
+            if encoded_rel == "index.html" {
                 "/".to_string()
-            } else if rel_str.ends_with("/index.html") {
-                format!("/{}/", rel_str.trim_end_matches("/index.html"))
+            } else if encoded_rel.ends_with("/index.html") {
+                format!("/{}/", encoded_rel.trim_end_matches("/index.html"))
             } else {
-                format!("/{rel_str}")
+                format!("/{encoded_rel}")
             }
         }
+    };
+
+    if !url.starts_with('/') || url.contains('#') {
+        bail!("invalid URL key derived from {}", rel.display());
     }
+
+    Ok(url)
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -225,14 +257,36 @@ fn sha256_hex(bytes: &[u8]) -> String {
     format!("{digest:x}")
 }
 
-fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("failed creating directory {}", parent.display()))?;
-    }
+fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<()> {
+    let parent = path
+        .parent()
+        .with_context(|| format!("destination path {} has no parent directory", path.display()))?;
+    fs::create_dir_all(parent)
+        .with_context(|| format!("failed creating directory {}", parent.display()))?;
+
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .with_context(|| format!("destination path {} has no file name", path.display()))?;
+    let temp_path = parent.join(format!(".{file_name}.tmp"));
 
     let json = serde_json::to_string_pretty(value).context("failed to serialize JSON")?;
-    fs::write(path, format!("{json}\n")).with_context(|| format!("failed writing {}", path.display()))?;
+    {
+        let mut file = fs::File::create(&temp_path)
+            .with_context(|| format!("failed creating temporary file {}", temp_path.display()))?;
+        file.write_all(format!("{json}\n").as_bytes())
+            .with_context(|| format!("failed writing temporary file {}", temp_path.display()))?;
+        file.sync_all()
+            .with_context(|| format!("failed syncing temporary file {}", temp_path.display()))?;
+    }
+
+    fs::rename(&temp_path, path).with_context(|| {
+        format!(
+            "failed replacing {} with {}",
+            path.display(),
+            temp_path.display()
+        )
+    })?;
     Ok(())
 }
 
@@ -275,11 +329,11 @@ mod tests {
     #[test]
     fn rel_to_url_key_trailing_slash_style_maps_index_routes() {
         assert_eq!(
-            rel_to_url_key(Path::new("index.html"), IndexStyle::TrailingSlash),
+            rel_to_url_key(Path::new("index.html"), IndexStyle::TrailingSlash).expect("url key"),
             "/"
         );
         assert_eq!(
-            rel_to_url_key(Path::new("about/index.html"), IndexStyle::TrailingSlash),
+            rel_to_url_key(Path::new("about/index.html"), IndexStyle::TrailingSlash).expect("url key"),
             "/about/"
         );
     }
@@ -287,12 +341,37 @@ mod tests {
     #[test]
     fn rel_to_url_key_file_style_preserves_index_filename() {
         assert_eq!(
-            rel_to_url_key(Path::new("index.html"), IndexStyle::File),
+            rel_to_url_key(Path::new("index.html"), IndexStyle::File).expect("url key"),
             "/index.html"
         );
         assert_eq!(
-            rel_to_url_key(Path::new("about/index.html"), IndexStyle::File),
+            rel_to_url_key(Path::new("about/index.html"), IndexStyle::File).expect("url key"),
             "/about/index.html"
         );
+    }
+
+    #[test]
+    fn rel_to_url_key_percent_encodes_spaces() {
+        assert_eq!(
+            rel_to_url_key(Path::new("hello world.html"), IndexStyle::File).expect("url key"),
+            "/hello%20world.html"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn collect_digests_fails_on_unreadable_subdirectory() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempdir().expect("tempdir");
+        let root = dir.path();
+        let blocked = root.join("blocked");
+        fs::create_dir(&blocked).expect("create blocked dir");
+        fs::write(blocked.join("secret.html"), b"nope").expect("write secret");
+        fs::set_permissions(&blocked, fs::Permissions::from_mode(0o644)).expect("remove traverse permission");
+
+        let include_ext = vec!["html".to_string()];
+        let result = collect_digests(root, IndexStyle::TrailingSlash, &include_ext);
+        assert!(result.is_err());
     }
 }

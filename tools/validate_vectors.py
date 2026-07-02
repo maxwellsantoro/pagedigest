@@ -12,13 +12,35 @@ import json
 from pathlib import Path
 from typing import Any
 
+from jsonschema import Draft202012Validator
+
 
 ROOT = Path(__file__).resolve().parents[1]
 VECTORS = ROOT / "test-vectors"
+SCHEMA_PATH = ROOT / "pagedigest.schema.json"
 
 
 def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_schema_validator() -> Draft202012Validator:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    return Draft202012Validator(schema)
+
+
+def assert_schema_valid(validator: Draft202012Validator, path: Path) -> None:
+    data = read_json(path)
+    errors = sorted(validator.iter_errors(data), key=lambda err: list(err.path))
+    if errors:
+        details = "; ".join(f"{err.message} at {list(err.path)}" for err in errors)
+        raise ValueError(f"{path.name}: schema validation failed: {details}")
+
+
+def assert_schema_invalid(validator: Draft202012Validator, path: Path) -> None:
+    data = read_json(path)
+    if not any(True for _ in validator.iter_errors(data)):
+        raise ValueError(f"{path.name}: expected schema validation to fail")
 
 
 def validate_required_fields(path: Path) -> None:
@@ -107,6 +129,8 @@ def assert_url_key_variants(path: Path) -> None:
 
 
 def main() -> int:
+    validator = load_schema_validator()
+
     index = read_json(VECTORS / "index.json")
     case_ids = {c["id"] for c in index["cases"]}
     expected_ids = {
@@ -126,6 +150,31 @@ def main() -> int:
     missing = expected_ids - case_ids
     if missing:
         raise ValueError(f"index missing expected cases: {sorted(missing)}")
+
+    valid_fixtures = [
+        VECTORS / "valid-minimal.json",
+        VECTORS / "valid-with-digest.json",
+        VECTORS / "valid-partial-prefix.json",
+        VECTORS / "valid-with-coverage-complete.json",
+        VECTORS / "url-key-variants.json",
+        VECTORS / "coverage-mode-change-prev.json",
+        VECTORS / "coverage-mode-change-next.json",
+        VECTORS / "coverage-prefixes-change-prev.json",
+        VECTORS / "coverage-prefixes-change-next.json",
+        VECTORS / "violation-monotonicity-prev.json",
+        VECTORS / "violation-monotonicity-next.json",
+        VECTORS / "audit-match" / "manifest.json",
+        VECTORS / "audit-mismatch" / "manifest.json",
+    ]
+    for path in valid_fixtures:
+        assert_schema_valid(validator, path)
+
+    invalid_fixtures = [
+        VECTORS / "invalid-missing-required.json",
+        VECTORS / "invalid-url-key-fragment.json",
+    ]
+    for path in invalid_fixtures:
+        assert_schema_invalid(validator, path)
 
     validate_required_fields(VECTORS / "valid-minimal.json")
     validate_required_fields(VECTORS / "valid-with-digest.json")

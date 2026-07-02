@@ -11,3 +11,8 @@ requires-python = ">=3.9"
 dependencies = [
   "requests>=2.31.0"
 ]
+
+[project.optional-dependencies]
+dev = [
+  "jsonschema>=4.23.0"
+]

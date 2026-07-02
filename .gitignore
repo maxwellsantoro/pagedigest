@@ -4,3 +4,4 @@ implementations/rust-generator/target/
 .pytest_cache/
 .venv/
 *.pyc
+*.egg-info/
