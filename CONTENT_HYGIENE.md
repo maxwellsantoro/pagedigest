@@ -17,6 +17,30 @@ If non-content bytes change on every build or request, `pagedigest` becomes nois
 - Session IDs / CSRF tokens embedded into static output.
 - Analytics snippets that change per build.
 - Dynamic aggregates in static templates (view counts, comment counts).
+- CDN and edge features that rewrite HTML after deploy (see below).
+
+## Case study: CDN feature injection
+
+Observed on pagedigest.org's own first production day (2026-07-02):
+Cloudflare's **Email Address Obfuscation** rewrote a `mailto:` link into a
+`/cdn-cgi/l/email-protection` URL and injected a decode script before
+`</body>`, so the served bytes for `/` no longer matched the manifest's
+`digest` — an honest publisher failing its own audit because of host
+middleware. Pages without an email address on the same host audited clean.
+
+Any edge feature that mutates HTML bytes has the same effect. Known
+offenders include email obfuscation, auto-minification, script injectors
+(RUM/analytics beacons, Rocket Loader-style optimizers), and bot-management
+snippets. Before publishing digests, either:
+
+- disable HTML-mutating edge features for the origin, or
+- audit each covered URL over the wire after deploy
+  (`tools/verify_over_wire_digests.py`) and omit `digest` for URLs the host
+  refuses to serve byte-stable.
+
+`rev` integers remain valid either way — this failure mode only poisons
+`digest` audits, but a poisoned audit reads as publisher dishonesty to
+consumers, which is worse than omitting the digest.
 
 ## Practical pipeline pattern
 

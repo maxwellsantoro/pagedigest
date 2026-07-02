@@ -1,0 +1,6 @@
+/*
+  Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
+
+/.well-known/pagedigest.json
+  Content-Type: application/json
+  Cache-Control: public, max-age=300
