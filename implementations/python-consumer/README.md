@@ -1,15 +1,22 @@
 # Python Consumer (Minimal Reference)
 
-This is the minimal consumer reference implementation.
+## Install (from repo)
+
+```bash
+cd implementations/python-consumer
+uv sync
+uv pip install -e .
+```
+
+Requires Python ≥3.9. Runtime dependency: `requests`.
 
 ## API
 
-- `fetch(base_url, ...)`: fetch and validate manifest with graceful fallback signals.
-- `diff(manifest, cached_site_rev, cached_revs)`: compute changed/new/unchanged/removed/anomalous URLs.
-- `audit(base_url, url_key, expected_digest, ...)`: identity-encoding digest audit helper.
-- `check_site(base_url, cached_site_rev, cached_revs, ...)`: convenience wrapper around fetch + diff.
-
-Conformance fixtures in `../../test-vectors/` are exercised by `tests/test_vectors.py` (validation and diff semantics).
+- `fetch` — fetch and validate manifest; graceful fallback on errors
+- `diff` — compare manifest to cached `site_rev` / per-URL `rev`
+- `audit` — identity-encoding digest check
+- `check_site` — `fetch` + `diff` + optional sampled audit plan
+- `validate_manifest`, `resolve_url_key` — validation helpers
 
 ## Example
 
@@ -23,3 +30,5 @@ decision = check_site(
     sample_audit_rate=0.01,
 )
 ```
+
+Conformance fixtures: `tests/test_vectors.py` exercises `../../test-vectors/`.

@@ -1,6 +1,8 @@
-# Review Guide
+# Review Guide (archived)
 
-This document is a focused map for the next review round.
+> **Archived** after v1 RC sign-off. Kept for historical context on the RC review round. For current quality gates, run `./tools/run_checks.sh`. For release tracking, see [RELEASE_CHECKLIST.md](../../RELEASE_CHECKLIST.md).
+
+This document was a focused map for the RC review round.
 
 ## Primary goals for this round
 
@@ -14,7 +16,7 @@ This document is a focused map for the next review round.
 - `README.md`: launch positioning, best-fit consumer framing, conformance/CI usage.
 - `RELEASE_CHECKLIST.md`: pre-freeze clarifications and launch-now completion tracking.
 
-## New implementation surfaces
+## Implementation surfaces
 
 - `implementations/rust-generator/`: minimal generator CLI and unit tests.
 - `implementations/python-consumer/`: minimal consumer APIs and unit tests.
@@ -27,26 +29,10 @@ This document is a focused map for the next review round.
 - `tools/run_checks.sh`: one-command local check runner.
 - `.github/workflows/ci.yml`: CI mirror of local quality gates.
 
-## Suggested reviewer commands
+## Reviewer commands
 
 ```bash
 ./tools/run_checks.sh
 ```
 
-Optional focused checks:
-
-```bash
-python tools/validate_vectors.py
-python tools/smoke_generator_progression.py
-cargo test --manifest-path implementations/rust-generator/Cargo.toml
-python -m unittest discover -s implementations/python-consumer/tests -v
-```
-
 `tests/test_vectors.py` loads the conformance bundle through `validate_manifest` and `diff`.
-
-## Review questions
-
-- Do the new spec statements close interop ambiguity without expanding scope?
-- Do generator/consumer behaviors match the contract and checklist claims?
-- Are vectors representative enough to catch common implementation errors?
-- Is CI coverage aligned with what maintainers will actually rely on before merge?

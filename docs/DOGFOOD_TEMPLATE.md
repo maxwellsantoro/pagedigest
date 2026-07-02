@@ -1,6 +1,6 @@
 # Dogfood Deployment Template
 
-Use this template for the first publisher-controlled deployment write-up.
+Use this template for the producer case study ([ROADMAP](../ROADMAP.md) Phase 3).
 
 ## Site
 

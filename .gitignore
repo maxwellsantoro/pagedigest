@@ -1,4 +1,4 @@
-.vscode/tasks.json
+.vscode/
 .wrangler/
 implementations/rust-generator/target/
 **/__pycache__/

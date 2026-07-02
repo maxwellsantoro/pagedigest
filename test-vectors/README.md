@@ -1,22 +1,14 @@
-# pagedigest Test Vectors
+# Conformance fixtures
 
-This directory contains conformance-oriented fixtures for generators and consumers.
+Machine-readable case index: [`index.json`](./index.json). Validated by `tools/validate_vectors.py` and `implementations/python-consumer/tests/test_vectors.py`.
 
-## Contents
+| Kind | Examples |
+|------|----------|
+| `valid` | Minimal, digests, partial `coverage`, URL-key variants |
+| `semantic-site-rev-bump` | Coverage mode/prefix changes bump `site_rev` |
+| `semantic-rev-bump` | Content rollback still increments `rev` |
+| `anomalous-sequence` | `site_rev` / `rev` decreases |
+| `invalid-schema` / `invalid-spec` | Missing fields, fragment URL keys |
+| `audit-match` / `audit-mismatch` | Digest vs `page-body.bin` |
 
-- `valid-minimal.json`: valid minimal manifest.
-- `valid-with-digest.json`: valid manifest with digests.
-- `valid-partial-prefix.json`: valid partial manifest with `coverage.mode=prefixes`.
-- `valid-with-coverage-complete.json`: valid manifest with `coverage.mode=complete`.
-- `coverage-mode-change-prev.json` and `coverage-mode-change-next.json`: pair illustrating that coverage semantic changes bump `site_rev`.
-- `coverage-prefixes-change-prev.json` and `coverage-prefixes-change-next.json`: pair illustrating that changing `coverage.prefixes` also bumps `site_rev`.
-- `url-key-variants.json`: valid key examples for trailing slash, material query variants, and percent-encoding.
-- `invalid-missing-required.json`: invalid manifest (missing required `entries`).
-- `invalid-url-key-fragment.json`: invalid key example (contains `#fragment`).
-- `violation-monotonicity-prev.json` and `violation-monotonicity-next.json`: pair illustrating monotonicity violation.
-- `rollback-content-prev.json` and `rollback-content-next.json`: pair illustrating that rolling back to earlier content still increments `rev` and `site_rev` (revs never decrease).
-- `audit-match/`: audit sample where digest matches identity bytes.
-- `audit-mismatch/`: audit sample where digest does not match identity bytes.
-- `index.json`: machine-readable case index.
-
-These vectors intentionally include both schema-invalid and protocol-anomalous examples.
+Schema validation is necessary but not sufficient — normative rules are in [SPEC.md](../SPEC.md).
