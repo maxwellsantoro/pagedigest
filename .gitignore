@@ -6,3 +6,4 @@ implementations/rust-generator/target/
 .venv/
 *.pyc
 *.egg-info/
+.ruff_cache/

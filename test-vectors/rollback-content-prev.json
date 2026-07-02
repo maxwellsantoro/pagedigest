@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "generated": "2026-04-17T12:00:00Z",
+  "site_rev": 20,
+  "entries": {
+    "/article": {
+      "rev": 7,
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  }
+}

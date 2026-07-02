@@ -14,6 +14,7 @@ This directory contains conformance-oriented fixtures for generators and consume
 - `invalid-missing-required.json`: invalid manifest (missing required `entries`).
 - `invalid-url-key-fragment.json`: invalid key example (contains `#fragment`).
 - `violation-monotonicity-prev.json` and `violation-monotonicity-next.json`: pair illustrating monotonicity violation.
+- `rollback-content-prev.json` and `rollback-content-next.json`: pair illustrating that rolling back to earlier content still increments `rev` and `site_rev` (revs never decrease).
 - `audit-match/`: audit sample where digest matches identity bytes.
 - `audit-mismatch/`: audit sample where digest does not match identity bytes.
 - `index.json`: machine-readable case index.

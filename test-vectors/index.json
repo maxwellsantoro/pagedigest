@@ -60,6 +60,14 @@
       "kind": "anomalous-sequence"
     },
     {
+      "id": "rollback-content",
+      "files": [
+        "rollback-content-prev.json",
+        "rollback-content-next.json"
+      ],
+      "kind": "semantic-rev-bump"
+    },
+    {
       "id": "audit-match",
       "manifest": "audit-match/manifest.json",
       "body": "audit-match/page-body.bin",

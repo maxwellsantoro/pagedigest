@@ -42,6 +42,8 @@ cargo test --manifest-path implementations/rust-generator/Cargo.toml
 python -m unittest discover -s implementations/python-consumer/tests -v
 ```
 
+`tests/test_vectors.py` loads the conformance bundle through `validate_manifest` and `diff`.
+
 ## Review questions
 
 - Do the new spec statements close interop ambiguity without expanding scope?

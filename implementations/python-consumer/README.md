@@ -9,6 +9,8 @@ This is the minimal consumer reference implementation.
 - `audit(base_url, url_key, expected_digest, ...)`: identity-encoding digest audit helper.
 - `check_site(base_url, cached_site_rev, cached_revs, ...)`: convenience wrapper around fetch + diff.
 
+Conformance fixtures in `../../test-vectors/` are exercised by `tests/test_vectors.py` (validation and diff semantics).
+
 ## Example
 
 ```python

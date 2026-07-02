@@ -120,6 +120,27 @@ def assert_coverage_prefixes_change_bumps_site_rev(prev_path: Path, next_path: P
         raise ValueError("expected site_rev to increase when coverage.prefixes changes")
 
 
+def assert_rollback_increments_revs(prev_path: Path, next_path: Path) -> None:
+    prev = read_json(prev_path)
+    nxt = read_json(next_path)
+
+    if nxt["site_rev"] <= prev["site_rev"]:
+        raise ValueError("expected site_rev to increase after content rollback")
+
+    prev_entries = prev["entries"]
+    nxt_entries = nxt["entries"]
+    bumped = False
+    for key, prev_entry in prev_entries.items():
+        if key not in nxt_entries:
+            continue
+        next_rev = nxt_entries[key]["rev"]
+        if next_rev <= prev_entry["rev"]:
+            raise ValueError(f"expected rev to increase for rolled-back URL {key}")
+        bumped = True
+    if not bumped:
+        raise ValueError("expected at least one entry rev to increase in rollback pair")
+
+
 def assert_url_key_variants(path: Path) -> None:
     data = read_json(path)
     entries = data.get("entries") or {}
@@ -144,6 +165,7 @@ def main() -> int:
         "invalid-missing-required",
         "invalid-url-key-fragment",
         "violation-monotonicity",
+        "rollback-content",
         "audit-match",
         "audit-mismatch",
     }
@@ -163,6 +185,8 @@ def main() -> int:
         VECTORS / "coverage-prefixes-change-next.json",
         VECTORS / "violation-monotonicity-prev.json",
         VECTORS / "violation-monotonicity-next.json",
+        VECTORS / "rollback-content-prev.json",
+        VECTORS / "rollback-content-next.json",
         VECTORS / "audit-match" / "manifest.json",
         VECTORS / "audit-mismatch" / "manifest.json",
     ]
@@ -187,6 +211,10 @@ def main() -> int:
     assert_monotonicity_violation(
         VECTORS / "violation-monotonicity-prev.json",
         VECTORS / "violation-monotonicity-next.json",
+    )
+    assert_rollback_increments_revs(
+        VECTORS / "rollback-content-prev.json",
+        VECTORS / "rollback-content-next.json",
     )
     assert_coverage_mode_change_bumps_site_rev(
         VECTORS / "coverage-mode-change-prev.json",
