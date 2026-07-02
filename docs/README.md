@@ -1,5 +1,7 @@
 # Documentation index
 
+Agents: [AGENTS.md](../AGENTS.md) (symlinked as `CLAUDE.md`).
+
 | Document | Audience | Purpose |
 |----------|----------|---------|
 | [SPEC.md](../SPEC.md) | Implementers | Normative wire format and consumer algorithm |
