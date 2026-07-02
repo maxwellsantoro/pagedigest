@@ -1,14 +1,29 @@
 {
   "version": 1,
-  "generated": "2026-07-02T16:00:17Z",
-  "site_rev": 1,
+  "generated": "2026-07-02T17:21:07Z",
+  "site_rev": 2,
+  "coverage": {
+    "mode": "complete"
+  },
   "entries": {
     "/": {
-      "rev": 1
+      "rev": 2
+    },
+    "/404.html": {
+      "rev": 1,
+      "digest": "sha256:8d8a7407dbd43b07f09ecf7d5bb675bb65e05519e42829c60c3dde96b2579d27"
     },
     "/rel/": {
+      "rev": 2,
+      "digest": "sha256:4492e2b3fe5173167aa3b6dda19ee1a10c894db4f29745f82711ae7859d0167d"
+    },
+    "/robots.txt": {
       "rev": 1,
-      "digest": "sha256:8cf69387cb96cc251124bcf27abca351c42db981b338912edc249804c2bf4082"
+      "digest": "sha256:4d3a86aa9d392a3c0c93ca777caae55e8fb7eca868d31c89811630ebad7cf7d3"
+    },
+    "/sitemap.xml": {
+      "rev": 1,
+      "digest": "sha256:4c479e2fdd195b74bc4e208a0d1697700d81a7b6f27d639dfa74c10480b8a834"
     }
   }
 }

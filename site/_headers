@@ -1,6 +1,31 @@
 /*
   Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+/
+  Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: public, max-age=300, must-revalidate
+
+/rel/
+  Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: public, max-age=300, must-revalidate
+
+/404.html
+  Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
+  Content-Type: text/html; charset=utf-8
+  Cache-Control: public, max-age=300, must-revalidate
+
+/robots.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=300, must-revalidate
+
+/sitemap.xml
+  Content-Type: application/xml; charset=utf-8
+  Cache-Control: public, max-age=300, must-revalidate
 
 /.well-known/pagedigest.json
   Content-Type: application/json
-  Cache-Control: public, max-age=300
+  Cache-Control: public, max-age=300, must-revalidate

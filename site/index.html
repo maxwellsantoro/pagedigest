@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pagedigest — one file that tells crawlers what changed</title>
 <meta name="description" content="pagedigest is a one-file protocol: a JSON manifest at /.well-known/pagedigest.json that tells automated clients which pages changed, so both sides stop wasting bandwidth.">
+<link rel="canonical" href="https://pagedigest.org/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://pagedigest.org/">
+<meta property="og:title" content="pagedigest — one file that tells crawlers what changed">
+<meta property="og:description" content="A one-file change-detection protocol for publishers and automated consumers.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="pagedigest — one file that tells crawlers what changed">
+<meta name="twitter:description" content="A JSON manifest that lets crawlers fetch only pages that changed.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='10' y='10' width='44' height='44' rx='8' fill='%23152228'/%3E%3Ctext x='32' y='42' font-family='monospace' font-size='26' fill='%23F2F5F6' text-anchor='middle'%3E%E2%86%91%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,6 +47,10 @@
     outline: 2px solid var(--crawler);
     outline-offset: 3px;
     border-radius: 2px;
+  }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
   }
   .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px; }
 
@@ -188,10 +200,19 @@
   footer .wrap { display: contents; }
 
   @media (max-width: 720px) {
+    header.top { align-items: flex-start; flex-direction: column; gap: 12px; }
+    nav.top-links { flex-wrap: wrap; gap: 8px 14px; max-width: 100%; }
+    nav.top-links a { display: inline-block; }
     .argument { grid-template-columns: 1fr; }
     .argument figure.publisher { border-right: 0; border-bottom: 1px solid var(--line); }
     .bargain { grid-template-columns: 1fr; }
     ol.steps li { grid-template-columns: 40px 1fr; }
+  }
+  @media (max-width: 460px) {
+    .wrap { padding: 0 18px; }
+    .hero { padding-top: 54px; }
+    .manifest { font-size: 0.78rem; padding: 18px 20px; }
+    .manifest .row-changed { margin-left: -20px; padding-left: 17px; }
   }
 </style>
 </head>
@@ -347,12 +368,12 @@
         <div class="cell">
           <h3>Reference implementations</h3>
           <p>A Rust generator and a Python consumer library exist today, with a conformance
-          vector suite. Public source release accompanies 1.0.</p>
+          vector suite. Source is available in the public repository.</p>
         </div>
         <div class="cell">
           <h3>Get involved</h3>
-          <p>Crawler operators and publishers who want early integration:
-          <a href="mailto:hello@pagedigest.org">hello@pagedigest.org</a>.</p>
+          <p>Crawler operators and publishers who want early integration can email
+          <span class="contact">hello<span aria-hidden="true"> [at] </span><span class="sr-only"> at </span>pagedigest.org</span>.</p>
         </div>
       </div>
     </div>

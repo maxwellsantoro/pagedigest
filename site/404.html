@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page not found — pagedigest</title>
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://pagedigest.org/404.html">
+<style>
+  :root {
+    --paper: #F2F5F6;
+    --ink: #152228;
+    --ink-soft: #47585F;
+    --wash: #DFEEEB;
+    --line: #C9D4D8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: Georgia, serif; font-size: 1.08rem; line-height: 1.65;
+  }
+  main { max-width: 680px; margin: 0 auto; padding: 72px 22px; }
+  h1 {
+    font-family: system-ui, sans-serif; font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1.08; letter-spacing: -0.02em; margin: 0 0 18px;
+  }
+  p { max-width: 58ch; color: var(--ink-soft); }
+  a { color: inherit; text-underline-offset: 3px; }
+  .card {
+    margin-top: 28px; border: 1px solid var(--line); border-radius: 14px;
+    background: var(--wash); padding: 22px 24px;
+  }
+  code { font-family: ui-monospace, monospace; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>That page is not in the manifest.</h1>
+  <p>The URL you requested is not available on pagedigest.org.</p>
+  <div class="card">
+    <p>Try the <a href="/">homepage</a>, the <a href="/rel/">link relation definition</a>, or the
+    live <a href="/.well-known/pagedigest.json"><code>/.well-known/pagedigest.json</code></a> manifest.</p>
+  </div>
+</main>
+</body>
+</html>

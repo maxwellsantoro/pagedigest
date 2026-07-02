@@ -1,0 +1,9 @@
+/ /index.html 200
+/rel /rel/ 301
+/rel/ /rel/index.html 200
+/rel/index.html /rel/index.html 200
+/404.html /404.html 200
+/robots.txt /robots.txt 200
+/sitemap.xml /sitemap.xml 200
+/.well-known/pagedigest.json /.well-known/pagedigest.json 200
+/* /404.html 404

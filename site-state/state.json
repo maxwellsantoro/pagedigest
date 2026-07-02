@@ -1,13 +1,28 @@
 {
-  "site_rev": 1,
+  "site_rev": 2,
+  "coverage": {
+    "mode": "complete"
+  },
   "entries": {
     "/": {
+      "rev": 2,
+      "digest": "be81cfcf3549d9c2654bc76df9ccc7f65123e2ba4a57be7ab5c957487ad54f9d"
+    },
+    "/404.html": {
       "rev": 1,
-      "digest": "a2eb91bd88cfab6c8fc1208a0ec620e52d7b94ec02ef8010471f04a8c298be12"
+      "digest": "8d8a7407dbd43b07f09ecf7d5bb675bb65e05519e42829c60c3dde96b2579d27"
     },
     "/rel/": {
+      "rev": 2,
+      "digest": "4492e2b3fe5173167aa3b6dda19ee1a10c894db4f29745f82711ae7859d0167d"
+    },
+    "/robots.txt": {
       "rev": 1,
-      "digest": "8cf69387cb96cc251124bcf27abca351c42db981b338912edc249804c2bf4082"
+      "digest": "4d3a86aa9d392a3c0c93ca777caae55e8fb7eca868d31c89811630ebad7cf7d3"
+    },
+    "/sitemap.xml": {
+      "rev": 1,
+      "digest": "4c479e2fdd195b74bc4e208a0d1697700d81a7b6f27d639dfa74c10480b8a834"
     }
   }
 }
