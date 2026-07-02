@@ -216,6 +216,7 @@ The repository includes a conformance-oriented vector bundle plus automated chec
 - `tools/validate_vectors.py` for fixture integrity checks
 - `tools/smoke_generator_progression.py` for end-to-end generator revision progression checks
 - `tools/verify_over_wire_digests.py` for live dogfood digest sampling against identity-encoded responses
+- `tools/reconcile_served_digests.py` for post-deploy convergence with CDN/edge rewrites: adopts digests for stable transforms, removes them for per-response transforms, so publishers keep edge features enabled without failing audits
 - `.github/workflows/ci.yml` for CI execution on push and pull requests
 
 Run all local checks with one command:

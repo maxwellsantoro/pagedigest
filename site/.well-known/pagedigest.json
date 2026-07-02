@@ -1,11 +1,10 @@
 {
   "version": 1,
-  "generated": "2026-07-02T14:03:02Z",
+  "generated": "2026-07-02T16:00:17Z",
   "site_rev": 1,
   "entries": {
     "/": {
-      "rev": 1,
-      "digest": "sha256:a2eb91bd88cfab6c8fc1208a0ec620e52d7b94ec02ef8010471f04a8c298be12"
+      "rev": 1
     },
     "/rel/": {
       "rev": 1,

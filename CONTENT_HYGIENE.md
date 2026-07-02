@@ -31,16 +31,23 @@ middleware. Pages without an email address on the same host audited clean.
 Any edge feature that mutates HTML bytes has the same effect. Known
 offenders include email obfuscation, auto-minification, script injectors
 (RUM/analytics beacons, Rocket Loader-style optimizers), and bot-management
-snippets. Before publishing digests, either:
+snippets.
 
-- disable HTML-mutating edge features for the origin, or
-- audit each covered URL over the wire after deploy
-  (`tools/verify_over_wire_digests.py`) and omit `digest` for URLs the host
-  refuses to serve byte-stable.
+Publishers do not need to disable these features. Run
+`tools/reconcile_served_digests.py --apply` after every deploy: it fetches
+each digest-bearing URL twice with identity encoding and makes the manifest
+converge to served reality —
+
+- **stable transforms** (deterministic rewrites such as minification): the
+  digest is adopted from the served bytes, so audits pass;
+- **unstable transforms** (per-response rewrites such as randomized email
+  obfuscation — the pagedigest.org case above): the digest is removed for
+  that URL, which the spec defines as the honest state.
 
 `rev` integers remain valid either way — this failure mode only poisons
 `digest` audits, but a poisoned audit reads as publisher dishonesty to
-consumers, which is worse than omitting the digest.
+consumers, which is worse than omitting the digest. Without `--apply` the
+tool is read-only and exits non-zero on findings, so it can gate a deploy.
 
 ## Practical pipeline pattern
 
@@ -50,6 +57,10 @@ Recommended order:
 2. Ensure final output is deterministic for content-bearing pages.
 3. Generate `pagedigest` from rendered output.
 4. Deploy pages and manifest atomically (or pages first, then manifest).
+5. Reconcile against served bytes
+   (`tools/reconcile_served_digests.py <manifest> --base-url <origin> --apply`)
+   and redeploy the manifest if it changed — this absorbs CDN/edge rewrites
+   without disabling any host feature.
 
 ## Digest reliability note
 
