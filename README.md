@@ -58,6 +58,13 @@ For a 10,000-page docs site that changes 20 pages a week, a consumer using `page
 
 These layers are complementary and can be deployed independently.
 
+`pagedigest` also shares a direction with its sibling project
+[dotrepo](https://dotrepo.org), which applies the same declare-once principle
+to repository semantics: `pagedigest` tells a consumer *what changed*, dotrepo
+tells it *what a repository is and how to use it*. See
+[docs/ecosystem.md](./docs/ecosystem.md) for the relationship and planned
+integrations.
+
 ## Best-fit consumers
 
 `pagedigest` is best for stateful, periodic consumers that retain crawl state: search indexers, archives, mirrors, enterprise sync pipelines, and agent caches.
