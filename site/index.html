@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pagedigest — one file that tells crawlers what changed</title>
+<meta name="description" content="pagedigest is a one-file protocol: a JSON manifest at /.well-known/pagedigest.json that tells automated clients which pages changed, so both sides stop wasting bandwidth.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='10' y='10' width='44' height='44' rx='8' fill='%23152228'/%3E%3Ctext x='32' y='42' font-family='monospace' font-size='26' fill='%23F2F5F6' text-anchor='middle'%3E%E2%86%91%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F2F5F6;
+    --paper-deep: #E6ECEE;
+    --ink: #152228;
+    --ink-soft: #47585F;
+    --publisher: #9A5B00;
+    --publisher-wash: #F6EBDA;
+    --crawler: #0E6E62;
+    --crawler-wash: #DFEEEB;
+    --line: #C9D4D8;
+    --display: "Space Grotesk", system-ui, sans-serif;
+    --body: "Source Serif 4", Georgia, serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 1.06rem;
+    line-height: 1.65;
+  }
+  a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--crawler);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px; }
+
+  header.top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 26px 0 0;
+    font-family: var(--mono); font-size: 0.9rem;
+  }
+  .wordmark { font-family: var(--mono); font-weight: 600; font-size: 1.05rem; text-decoration: none; }
+  .wordmark .dot { color: var(--crawler); }
+  nav.top-links { display: flex; gap: 18px; }
+  nav.top-links a { text-decoration: none; color: var(--ink-soft); }
+  nav.top-links a:hover { color: var(--ink); }
+
+  /* Hero */
+  .hero { padding: 72px 0 20px; }
+  .hero h1 {
+    font-family: var(--display); font-weight: 700;
+    font-size: clamp(2rem, 5.4vw, 3.4rem);
+    line-height: 1.06; letter-spacing: -0.015em;
+    margin: 0 0 18px; max-width: 21ch;
+  }
+  .hero p.lede { max-width: 62ch; margin: 0 0 8px; font-size: 1.14rem; color: var(--ink-soft); }
+  .hero p.lede code { font-family: var(--mono); font-size: 0.86em; background: var(--paper-deep); padding: 1px 6px; border-radius: 4px; }
+
+  /* The mirrored argument — signature element */
+  .argument {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    margin: 44px 0 0;
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+  }
+  .argument figure { margin: 0; padding: 28px 28px 24px; }
+  .argument figure.publisher { background: var(--publisher-wash); border-right: 1px solid var(--line); }
+  .argument figure.crawler { background: var(--crawler-wash); }
+  .argument blockquote {
+    margin: 0; font-size: 1.16rem; font-weight: 600; line-height: 1.45;
+    text-wrap: balance;
+  }
+  .argument figcaption {
+    margin-top: 14px; font-family: var(--mono); font-size: 0.8rem;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .publisher figcaption { color: var(--publisher); }
+  .crawler figcaption { color: var(--crawler); }
+  .argument-note {
+    text-align: center; font-family: var(--mono); font-size: 0.88rem;
+    color: var(--ink-soft); margin: 14px 0 0;
+  }
+
+  section { padding: 56px 0 8px; }
+  h2 {
+    font-family: var(--display); font-weight: 700;
+    font-size: clamp(1.4rem, 3vw, 1.9rem); letter-spacing: -0.01em;
+    margin: 0 0 14px;
+  }
+  section > .wrap > p { max-width: 66ch; }
+  .muted { color: var(--ink-soft); }
+
+  /* Manifest example */
+  .manifest {
+    background: var(--ink); color: #DDE7EA;
+    border-radius: 14px; padding: 22px 24px;
+    font-family: var(--mono); font-size: 0.86rem; line-height: 1.6;
+    overflow-x: auto; margin: 22px 0 10px;
+  }
+  .manifest .k { color: #8FB6C4; }
+  .manifest .v { color: #E4C989; }
+  .manifest .rev { color: #7FD8C6; font-weight: 600; }
+  .manifest .row-changed {
+    display: inline-block; width: 100%;
+    background: rgba(127, 216, 198, 0.12);
+    border-left: 3px solid #7FD8C6;
+    margin-left: -24px; padding-left: 21px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .manifest .row-changed { animation: settle 1.6s ease-out 0.6s backwards; }
+    @keyframes settle {
+      0% { background: rgba(127, 216, 198, 0); border-left-color: transparent; }
+      35% { background: rgba(127, 216, 198, 0.3); border-left-color: #7FD8C6; }
+      100% { background: rgba(127, 216, 198, 0.12); }
+    }
+  }
+  .manifest-caption { font-family: var(--mono); font-size: 0.85rem; color: var(--ink-soft); }
+
+  /* Steps — a real sequence */
+  ol.steps { list-style: none; counter-reset: step; margin: 26px 0 0; padding: 0; display: grid; gap: 0; }
+  ol.steps li {
+    counter-increment: step;
+    display: grid; grid-template-columns: 64px 1fr; gap: 18px;
+    padding: 20px 0; border-top: 1px solid var(--line);
+  }
+  ol.steps li::before {
+    content: counter(step);
+    font-family: var(--mono); font-size: 1.5rem; font-weight: 600;
+    color: var(--crawler);
+  }
+  ol.steps strong { font-family: var(--display); font-weight: 700; display: block; margin-bottom: 2px; }
+  ol.steps p { margin: 0; color: var(--ink-soft); max-width: 62ch; }
+  ol.steps code { font-family: var(--mono); font-size: 0.86em; }
+
+  /* Live proof */
+  .proof {
+    border: 1px solid var(--line); border-radius: 14px;
+    background: white; padding: 26px 28px; margin-top: 22px;
+  }
+  .proof .stamp {
+    font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--crawler); margin-bottom: 10px;
+  }
+  .proof p { margin: 0 0 14px; max-width: 62ch; }
+  .proof pre {
+    background: var(--paper-deep); border-radius: 8px;
+    padding: 12px 16px; overflow-x: auto;
+    font-family: var(--mono); font-size: 0.86rem; margin: 0;
+  }
+
+  /* The bargain */
+  .bargain { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 22px; }
+  .bargain .side { border-radius: 14px; padding: 24px 26px; }
+  .bargain .side.publisher { background: var(--publisher-wash); }
+  .bargain .side.crawler { background: var(--crawler-wash); }
+  .bargain h3 {
+    font-family: var(--mono); font-size: 0.8rem; font-weight: 600;
+    letter-spacing: 0.07em; text-transform: uppercase; margin: 0 0 12px;
+  }
+  .side.publisher h3 { color: var(--publisher); }
+  .side.crawler h3 { color: var(--crawler); }
+  .bargain ul { margin: 0; padding-left: 18px; }
+  .bargain li { margin-bottom: 8px; }
+  .bargain li:last-child { margin-bottom: 0; }
+
+  /* Status */
+  .status-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px; margin-top: 22px;
+  }
+  .status-grid .cell { border-top: 2px solid var(--ink); padding-top: 12px; }
+  .status-grid h3 { font-family: var(--display); font-size: 1.02rem; margin: 0 0 6px; }
+  .status-grid p { margin: 0; font-size: 0.96rem; color: var(--ink-soft); }
+  .status-grid code { font-family: var(--mono); font-size: 0.84em; background: var(--paper-deep); padding: 1px 5px; border-radius: 4px; }
+
+  footer {
+    margin-top: 72px; padding: 28px 0 44px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 0.84rem; color: var(--ink-soft);
+    display: flex; flex-wrap: wrap; gap: 8px 26px;
+  }
+  footer .wrap { display: contents; }
+
+  @media (max-width: 720px) {
+    .argument { grid-template-columns: 1fr; }
+    .argument figure.publisher { border-right: 0; border-bottom: 1px solid var(--line); }
+    .bargain { grid-template-columns: 1fr; }
+    ol.steps li { grid-template-columns: 40px 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <a class="wordmark" href="/">pagedigest<span class="dot">.json</span></a>
+    <nav class="top-links" aria-label="Page navigation">
+      <a href="#manifest">Manifest</a>
+      <a href="#how">How it works</a>
+      <a href="#live">Live</a>
+      <a href="#bargain">The bargain</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>One file that tells crawlers what changed.</h1>
+    <p class="lede">A site publishes a JSON manifest at <code>/.well-known/pagedigest.json</code>.
+    Each URL gets a monotonic integer that moves only when the content moves. A crawler fetches
+    the manifest, compares integers, and fetches only the pages that changed — one request
+    instead of thousands.</p>
+
+    <div class="argument" role="group" aria-label="The same argument from both sides">
+      <figure class="publisher">
+        <blockquote>&ldquo;If you would stop hammering my server for pages that haven&rsquo;t
+        changed, I wouldn&rsquo;t have to rate-limit or ban you.&rdquo;</blockquote>
+        <figcaption>The publisher</figcaption>
+      </figure>
+      <figure class="crawler">
+        <blockquote>&ldquo;If you would stop hiding behind bot detection, I wouldn&rsquo;t have
+        to hammer your server — I just need to know what&rsquo;s new.&rdquo;</blockquote>
+        <figcaption>The crawler</figcaption>
+      </figure>
+    </div>
+    <p class="argument-note">They are describing the same waste. pagedigest is the coordination.</p>
+  </section>
+
+  <section id="manifest">
+    <div class="wrap" style="padding:0">
+      <h2>The manifest</h2>
+      <p>For a 10,000-page site that changes 20 pages a week, a consumer makes one manifest
+      request plus twenty page fetches per cycle — instead of ten thousand per-URL checks.
+      <code style="font-family:var(--mono);font-size:0.9em">site_rev</code> is the one-request
+      fast path: if it hasn&rsquo;t moved, nothing has.</p>
+
+<pre class="manifest" aria-label="Example pagedigest manifest">{
+  <span class="k">"version"</span>: <span class="v">1</span>,
+  <span class="k">"generated"</span>: <span class="v">"2026-07-02T10:00:00Z"</span>,
+  <span class="k">"site_rev"</span>: <span class="rev">18294</span>,
+  <span class="k">"entries"</span>: {
+    <span class="k">"/"</span>: { <span class="k">"rev"</span>: <span class="rev">47</span> },
+    <span class="k">"/about"</span>: { <span class="k">"rev"</span>: <span class="rev">12</span> },
+<span class="row-changed">    <span class="k">"/blog/hello-world"</span>: {</span>
+<span class="row-changed">      <span class="k">"rev"</span>: <span class="rev">4</span>,   <span class="muted">// was 3 — this is the only page to re-fetch</span></span>
+<span class="row-changed">      <span class="k">"digest"</span>: <span class="v">"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e…"</span></span>
+<span class="row-changed">    }</span>
+  }
+}</pre>
+      <p class="manifest-caption">The optional <span style="color:var(--crawler)">digest</span> lets
+      consumers spot-audit publisher claims: publishers who lie get caught, publishers who
+      cooperate accumulate trust.</p>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap" style="padding:0">
+      <h2>How a consumer uses it</h2>
+      <ol class="steps">
+        <li><div><strong>Fetch the manifest</strong>
+          <p>One GET to <code>/.well-known/pagedigest.json</code>. If it&rsquo;s missing or
+          malformed, fall back to whatever you did before — the protocol never makes things worse.</p>
+        </div></li>
+        <li><div><strong>Compare <code>site_rev</code></strong>
+          <p>Same integer as last visit? Nothing on the site changed. The crawl cycle is over
+          after a single request.</p>
+        </div></li>
+        <li><div><strong>Fetch only what moved</strong>
+          <p>For each URL whose <code>rev</code> incremented, re-fetch. Everything else is
+          provably unchanged, on the publisher&rsquo;s own word.</p>
+        </div></li>
+        <li><div><strong>Audit occasionally</strong>
+          <p>Hash a sampled page and compare it to the manifest&rsquo;s <code>digest</code>.
+          A mismatch means the manifest can&rsquo;t be trusted — downgrade and fall back.</p>
+        </div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="live">
+    <div class="wrap" style="padding:0">
+      <h2>Live in production</h2>
+      <div class="proof">
+        <div class="stamp">First production publisher</div>
+        <p><a href="https://dotrepo.org">dotrepo.org</a> — a public index of repository
+        metadata for AI agents — publishes a pagedigest manifest covering its full corpus:
+        thousands of JSON records that refresh continuously. Mirrors and agent caches sync the
+        whole index with one manifest request plus only the files whose revision moved.</p>
+        <pre>curl -s https://dotrepo.org/.well-known/pagedigest.json | jq .site_rev</pre>
+      </div>
+      <div class="proof" style="margin-top:14px">
+        <div class="stamp">This site, too</div>
+        <p>pagedigest.org publishes its own manifest at
+        <a href="/.well-known/pagedigest.json"><code style="font-family:var(--mono);font-size:0.9em">/.well-known/pagedigest.json</code></a>,
+        generated by the reference generator at build time.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="bargain">
+    <div class="wrap" style="padding:0">
+      <h2>The bargain</h2>
+      <p>pagedigest is a coordination protocol, not a defense mechanism. Each side takes on an
+      obligation that is already in its own interest.</p>
+      <div class="bargain">
+        <div class="side publisher">
+          <h3>Publishers commit</h3>
+          <ul>
+            <li>The integers move when content moves — and only then.</li>
+            <li>Digests are accurate hashes of what the server actually sends.</li>
+            <li>A publisher with an honest manifest has earned the right to rate-limit
+            consumers that ignore it.</li>
+          </ul>
+        </div>
+        <div class="side crawler">
+          <h3>Consumers commit</h3>
+          <ul>
+            <li>Fetch the manifest first; skip what hasn&rsquo;t moved.</li>
+            <li>Audit digests occasionally to keep publishers honest.</li>
+            <li>A consumer that respects the manifest is not the problem — that&rsquo;s the
+            intended use.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="status">
+    <div class="wrap" style="padding:0">
+      <h2>Status</h2>
+      <div class="status-grid">
+        <div class="cell">
+          <h3>Version 1, release candidate</h3>
+          <p>The wire format is stable: field names, semantics, and the
+          <code>/.well-known/pagedigest.json</code> location will not break before 1.0.</p>
+        </div>
+        <div class="cell">
+          <h3>Discovery</h3>
+          <p>Publishers advertise the manifest with
+          <code>Link: &lt;/.well-known/pagedigest.json&gt;; rel="https://pagedigest.org/rel"</code>
+          on ordinary responses.</p>
+        </div>
+        <div class="cell">
+          <h3>Reference implementations</h3>
+          <p>A Rust generator and a Python consumer library exist today, with a conformance
+          vector suite. Public source release accompanies 1.0.</p>
+        </div>
+        <div class="cell">
+          <h3>Get involved</h3>
+          <p>Crawler operators and publishers who want early integration:
+          <a href="mailto:hello@pagedigest.org">hello@pagedigest.org</a>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>pagedigest — a protocol for cooperative change detection</span>
+    <span>sibling project: <a href="https://dotrepo.org">dotrepo</a> (what a repository <em>means</em>; pagedigest covers what <em>changed</em>)</span>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pagedigest link relation</title>
+<meta name="description" content="Definition of the https://pagedigest.org/rel link relation type used to advertise a pagedigest manifest.">
+<style>
+  body {
+    margin: 0; background: #F2F5F6; color: #152228;
+    font-family: Georgia, serif; font-size: 1.05rem; line-height: 1.65;
+  }
+  main { max-width: 680px; margin: 0 auto; padding: 64px 22px; }
+  h1 { font-family: system-ui, sans-serif; font-size: 1.6rem; letter-spacing: -0.01em; }
+  code, pre { font-family: ui-monospace, "IBM Plex Mono", monospace; font-size: 0.88em; }
+  pre { background: #E6ECEE; padding: 14px 16px; border-radius: 8px; overflow-x: auto; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1><code>https://pagedigest.org/rel</code></h1>
+  <p>This URL is a <a href="https://www.rfc-editor.org/rfc/rfc8288">Web Linking (RFC 8288)</a>
+  extension relation type. A link with this relation identifies a
+  <a href="/">pagedigest</a> manifest for the origin: a JSON document of per-URL monotonic
+  revisions that lets automated clients detect content changes with one request.</p>
+  <p>Publishers advertise the manifest on ordinary responses:</p>
+  <pre>Link: &lt;/.well-known/pagedigest.json&gt;; rel="https://pagedigest.org/rel"</pre>
+  <p>Clients should treat this URL as an identifier for the relation's semantics, not as a
+  resource to dereference during ordinary operation. This page exists for the humans who
+  dereference it anyway.</p>
+  <p><a href="/">← pagedigest</a></p>
+</main>
+</body>
+</html>

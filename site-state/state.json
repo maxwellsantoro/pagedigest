@@ -1,0 +1,13 @@
+{
+  "site_rev": 1,
+  "entries": {
+    "/": {
+      "rev": 1,
+      "digest": "a2eb91bd88cfab6c8fc1208a0ec620e52d7b94ec02ef8010471f04a8c298be12"
+    },
+    "/rel/": {
+      "rev": 1,
+      "digest": "8cf69387cb96cc251124bcf27abca351c42db981b338912edc249804c2bf4082"
+    }
+  }
+}
