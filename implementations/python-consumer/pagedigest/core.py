@@ -11,14 +11,11 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import requests
 
-
 MANIFEST_PATH = "/.well-known/pagedigest.json"
 DEFAULT_MAX_MANIFEST_BYTES = 10 * 1024 * 1024
 URL_KEY_PATTERN = re.compile(r"^/([^#]*)?$")
 DIGEST_PATTERN = re.compile(r"^sha256:[a-f0-9]{64}$")
-TIMESTAMP_PATTERN = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+00:00)$"
-)
+TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+00:00)$")
 UNRESERVED = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 
 
@@ -60,7 +57,23 @@ def _validate_url_key(key: Any) -> str | None:
             continue
         if ord(ch) > 127:
             return "invalid-url-key-unencoded"
-        if ch not in UNRESERVED and ch not in {"/", "?", "&", "=", ":", "@", "!", "$", "'", "(", ")", "*", "+", ",", ";"}:
+        if ch not in UNRESERVED and ch not in {
+            "/",
+            "?",
+            "&",
+            "=",
+            ":",
+            "@",
+            "!",
+            "$",
+            "'",
+            "(",
+            ")",
+            "*",
+            "+",
+            ",",
+            ";",
+        }:
             return "invalid-url-key-unencoded"
         index += 1
     return None
@@ -81,6 +94,14 @@ def resolve_url_key(base_url: str, url_key: str) -> str:
     if target.scheme.lower() != base.scheme.lower() or target.netloc.lower() != base.netloc.lower():
         raise ValueError("url-key-origin-escape")
     return resolved
+
+
+def manifest_url(base_url: str) -> str:
+    """Return the origin-root pagedigest manifest URL for a site/page URL."""
+    base = urlsplit(base_url)
+    if base.scheme.lower() not in {"http", "https"} or not base.netloc:
+        raise ValueError("invalid-base-url")
+    return urlunsplit((base.scheme, base.netloc, MANIFEST_PATH, "", ""))
 
 
 def _validate_timestamp(value: Any, field: str) -> str | None:
@@ -191,35 +212,62 @@ def fetch(
     if last_modified:
         headers["If-Modified-Since"] = last_modified
 
-    url = urljoin(base_url.rstrip("/") + "/", MANIFEST_PATH.lstrip("/"))
     try:
+        url = manifest_url(base_url)
         r = s.get(url, headers=headers, timeout=timeout, stream=True)
     except requests.RequestException as exc:
         return FetchResult(False, None, None, None, None, str(exc))
+    except ValueError as exc:
+        return FetchResult(False, None, None, None, None, str(exc))
 
-    if r.status_code == 304:
-        return FetchResult(True, 304, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), None)
-
-    if r.status_code != 200:
-        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "manifest-unavailable")
-
-    body, size_error = _read_manifest_body(r, max_bytes)
-    if size_error is not None:
-        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), size_error)
-
-    assert body is not None
     try:
-        manifest = json.loads(body)
-    except ValueError:
-        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "invalid-json")
+        if r.status_code == 304:
+            return FetchResult(True, 304, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), None)
 
-    if not isinstance(manifest, dict):
-        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "invalid-manifest-type")
+        if r.status_code != 200:
+            return FetchResult(
+                False,
+                r.status_code,
+                None,
+                r.headers.get("ETag"),
+                r.headers.get("Last-Modified"),
+                "manifest-unavailable",
+            )
 
-    if (validation_error := validate_manifest(manifest)) is not None:
-        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), validation_error)
+        body, size_error = _read_manifest_body(r, max_bytes)
+        if size_error is not None:
+            return FetchResult(
+                False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), size_error
+            )
 
-    return FetchResult(True, r.status_code, manifest, r.headers.get("ETag"), r.headers.get("Last-Modified"), None)
+        assert body is not None
+        try:
+            manifest = json.loads(body)
+        except ValueError:
+            return FetchResult(
+                False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "invalid-json"
+            )
+
+        if not isinstance(manifest, dict):
+            return FetchResult(
+                False,
+                r.status_code,
+                None,
+                r.headers.get("ETag"),
+                r.headers.get("Last-Modified"),
+                "invalid-manifest-type",
+            )
+
+        if (validation_error := validate_manifest(manifest)) is not None:
+            return FetchResult(
+                False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), validation_error
+            )
+
+        return FetchResult(True, r.status_code, manifest, r.headers.get("ETag"), r.headers.get("Last-Modified"), None)
+    finally:
+        close = getattr(r, "close", None)
+        if callable(close):
+            close()
 
 
 def diff(
@@ -294,7 +342,9 @@ def diff(
     }
 
 
-def audit(base_url: str, url_key: str, expected_digest: str, timeout: int = 10, session: requests.Session | None = None) -> dict[str, Any]:
+def audit(
+    base_url: str, url_key: str, expected_digest: str, timeout: int = 10, session: requests.Session | None = None
+) -> dict[str, Any]:
     """Audit a digest claim using identity-encoding fetch semantics."""
     s = session or requests.Session()
     try:

@@ -15,5 +15,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "jsonschema>=4.23.0"
+  "jsonschema>=4.23.0",
+  "ruff>=0.8.0"
 ]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]

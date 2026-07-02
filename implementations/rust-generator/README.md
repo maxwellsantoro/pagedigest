@@ -8,8 +8,9 @@ Binary name: `pagedigest-generator` (`pagedigest` reserved for packaged distribu
 - Persists durable revision state (default: `<input_dir_parent>/.pagedigest/state.json`).
 - Increments per-URL `rev` on content changes; `site_rev` on any add/remove/change; never decreases.
 - Maps `index.html` to `/` or `/section/` (`--index-style trailing-slash|file`).
+- Emits `coverage: {"mode": "complete"}` by default for full-directory static-site scans.
 
-**Not emitted:** `coverage`, per-entry `modified`. Add in downstream integrations if needed.
+**Not emitted:** per-entry `modified`. Add in downstream integrations if needed.
 
 ## Digests
 
@@ -26,4 +27,4 @@ cargo run -- ./site-dist
 cargo run -- ./site-dist --output ./site-dist/.well-known/pagedigest.json --state ./state.json --with-digest
 ```
 
-Flags: `--index-style`, `--include-ext`, `--output`, `--state`, `--with-digest`.
+Flags: `--index-style`, `--include-ext`, `--output`, `--state`, `--with-digest`, `--coverage complete|none`.

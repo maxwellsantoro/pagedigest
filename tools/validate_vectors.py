@@ -91,7 +91,9 @@ def assert_audit_case(manifest_path: Path, body_path: Path, expect_match: bool) 
         raise ValueError("expected digest mismatch but got match")
 
 
-def assert_coverage_mode_change_bumps_site_rev(prev_path: Path, next_path: Path) -> None:
+def assert_coverage_mode_change_bumps_site_rev(
+    prev_path: Path, next_path: Path
+) -> None:
     prev = read_json(prev_path)
     nxt = read_json(next_path)
 
@@ -104,7 +106,9 @@ def assert_coverage_mode_change_bumps_site_rev(prev_path: Path, next_path: Path)
         raise ValueError("expected site_rev to increase when coverage semantics change")
 
 
-def assert_coverage_prefixes_change_bumps_site_rev(prev_path: Path, next_path: Path) -> None:
+def assert_coverage_prefixes_change_bumps_site_rev(
+    prev_path: Path, next_path: Path
+) -> None:
     prev = read_json(prev_path)
     nxt = read_json(next_path)
 
@@ -146,7 +150,9 @@ def assert_url_key_variants(path: Path) -> None:
     entries = data.get("entries") or {}
     for required in ("/about", "/about/", "/pricing?region=us", "/posts/hello%20world"):
         if required not in entries:
-            raise ValueError(f"expected key missing from url-key-variants fixture: {required}")
+            raise ValueError(
+                f"expected key missing from url-key-variants fixture: {required}"
+            )
 
 
 def main() -> int:

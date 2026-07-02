@@ -31,7 +31,7 @@ Update README install blocks as each ships. Semver for implementations; spec `ve
 | Astro plugin (`@pagedigest/astro`) | P0 |
 | Producer case study ([template](./docs/DOGFOOD_TEMPLATE.md)) | P0 |
 | Hygiene checker utility | P1 |
-| Generator: `coverage` + `modified` fields | P1 |
+| Generator: per-entry `modified` fields | P1 |
 | Hugo / Eleventy / Jekyll plugins | P2 |
 
 Publisher pipeline: build → generate manifest → deploy → `reconcile_served_digests.py --apply` → verify. Details: [CONTENT_HYGIENE.md](./CONTENT_HYGIENE.md).

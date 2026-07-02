@@ -4,7 +4,6 @@ from pathlib import Path
 
 from pagedigest.core import diff, validate_manifest
 
-
 ROOT = Path(__file__).resolve().parents[3]
 VECTORS = ROOT / "test-vectors"
 
@@ -67,7 +66,9 @@ class VectorBundleTests(unittest.TestCase):
         prev = read_json(VECTORS / "violation-monotonicity-prev.json")
         nxt = read_json(VECTORS / "violation-monotonicity-next.json")
 
-        result = diff(nxt, cached_site_rev=prev["site_rev"], cached_revs={k: v["rev"] for k, v in prev["entries"].items()})
+        result = diff(
+            nxt, cached_site_rev=prev["site_rev"], cached_revs={k: v["rev"] for k, v in prev["entries"].items()}
+        )
         self.assertEqual(result.get("site_anomaly"), "site-rev-decrease")
 
     def test_entry_rev_decrease_surfaces_as_anomaly(self) -> None:
@@ -93,7 +94,9 @@ class VectorBundleTests(unittest.TestCase):
         prev = read_json(VECTORS / "rollback-content-prev.json")
         nxt = read_json(VECTORS / "rollback-content-next.json")
 
-        result = diff(nxt, cached_site_rev=prev["site_rev"], cached_revs={k: v["rev"] for k, v in prev["entries"].items()})
+        result = diff(
+            nxt, cached_site_rev=prev["site_rev"], cached_revs={k: v["rev"] for k, v in prev["entries"].items()}
+        )
         self.assertEqual(result["changed"], ["/article"])
         self.assertEqual(result["anomalies"], [])
         self.assertTrue(result["site_changed"])

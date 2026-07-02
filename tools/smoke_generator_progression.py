@@ -20,7 +20,12 @@ ROOT = Path(__file__).resolve().parents[1]
 GENERATOR_DIR = ROOT / "implementations" / "rust-generator"
 
 
-def run_generator(site_dir: Path, manifest_path: Path, state_path: Path) -> None:
+def run_generator(
+    site_dir: Path,
+    manifest_path: Path,
+    state_path: Path,
+    extra_args: list[str] | None = None,
+) -> None:
     cmd = [
         "cargo",
         "run",
@@ -32,6 +37,8 @@ def run_generator(site_dir: Path, manifest_path: Path, state_path: Path) -> None
         "--state",
         str(state_path),
     ]
+    if extra_args:
+        cmd.extend(extra_args)
     subprocess.run(cmd, cwd=GENERATOR_DIR, check=True)
 
 
@@ -60,12 +67,16 @@ def main() -> int:
         run_generator(site_dir, manifest_path, state_path)
         m1 = load_manifest(manifest_path)
         assert_equal(m1["site_rev"], 1, "site_rev after first run")
+        assert_equal(m1["coverage"], {"mode": "complete"}, "coverage after first run")
         assert_equal(m1["entries"]["/"]["rev"], 1, "rev after first run")
 
         # Second run: no change.
         run_generator(site_dir, manifest_path, state_path)
         m2 = load_manifest(manifest_path)
         assert_equal(m2["site_rev"], 1, "site_rev after no-change run")
+        assert_equal(
+            m2["coverage"], {"mode": "complete"}, "coverage after no-change run"
+        )
         assert_equal(m2["entries"]["/"]["rev"], 1, "rev after no-change run")
 
         # Third run: content change.
@@ -81,7 +92,27 @@ def main() -> int:
         m4 = load_manifest(manifest_path)
         assert_equal(m4["site_rev"], 3, "site_rev after file removal")
         if "/" in m4["entries"]:
-            raise AssertionError("removed file key should not exist in manifest entries")
+            raise AssertionError(
+                "removed file key should not exist in manifest entries"
+            )
+
+        # Fifth run: coverage semantics change, so site_rev bumps even without content changes.
+        run_generator(
+            site_dir, manifest_path, state_path, extra_args=["--coverage", "none"]
+        )
+        m5 = load_manifest(manifest_path)
+        assert_equal(m5["site_rev"], 4, "site_rev after coverage change")
+        if "coverage" in m5:
+            raise AssertionError(
+                "coverage should be omitted when --coverage none is used"
+            )
+
+        # Sixth run: same coverage semantics, no content change.
+        run_generator(
+            site_dir, manifest_path, state_path, extra_args=["--coverage", "none"]
+        )
+        m6 = load_manifest(manifest_path)
+        assert_equal(m6["site_rev"], 4, "site_rev after no-change coverage-none run")
 
     print("generator smoke progression passed")
     return 0

@@ -13,9 +13,9 @@ import hashlib
 import random
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urljoin
 
 import requests
+from pagedigest import manifest_url as default_manifest_url
 from pagedigest import resolve_url_key, validate_manifest
 
 
@@ -29,7 +29,7 @@ class AuditResult:
 def build_manifest_url(base_url: str, manifest_url: str | None) -> str:
     if manifest_url:
         return manifest_url
-    return urljoin(base_url.rstrip("/") + "/", ".well-known/pagedigest.json")
+    return default_manifest_url(base_url)
 
 
 def fetch_manifest(url: str, timeout: int) -> dict[str, Any]:
@@ -45,7 +45,9 @@ def fetch_manifest(url: str, timeout: int) -> dict[str, Any]:
     return data
 
 
-def audit_entry(base_url: str, path: str, expected_digest: str, timeout: int) -> AuditResult:
+def audit_entry(
+    base_url: str, path: str, expected_digest: str, timeout: int
+) -> AuditResult:
     try:
         url = resolve_url_key(base_url, path)
     except ValueError as exc:
@@ -68,15 +70,26 @@ def audit_entry(base_url: str, path: str, expected_digest: str, timeout: int) ->
     computed = "sha256:" + hashlib.sha256(r.content).hexdigest()
     if computed == expected_digest:
         return AuditResult(url, "match", "ok")
-    return AuditResult(url, "mismatch", f"expected={expected_digest} computed={computed}")
+    return AuditResult(
+        url, "mismatch", f"expected={expected_digest} computed={computed}"
+    )
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Verify pagedigest digest values over the wire")
+    parser = argparse.ArgumentParser(
+        description="Verify pagedigest digest values over the wire"
+    )
     parser.add_argument("base_url", help="Site base URL, e.g. https://example.com")
-    parser.add_argument("--manifest-url", help="Override manifest URL (defaults to /.well-known/pagedigest.json)")
-    parser.add_argument("--sample-size", type=int, default=25, help="Number of digest entries to sample")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for deterministic sampling")
+    parser.add_argument(
+        "--manifest-url",
+        help="Override manifest URL (defaults to /.well-known/pagedigest.json)",
+    )
+    parser.add_argument(
+        "--sample-size", type=int, default=25, help="Number of digest entries to sample"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=42, help="Random seed for deterministic sampling"
+    )
     parser.add_argument("--timeout", type=int, default=15, help="HTTP timeout seconds")
     args = parser.parse_args()
 

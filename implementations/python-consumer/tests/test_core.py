@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from pagedigest.core import audit, check_site, diff, fetch, resolve_url_key, validate_manifest
-
+from pagedigest.core import audit, check_site, diff, fetch, manifest_url, resolve_url_key, validate_manifest
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -38,6 +37,7 @@ class StubResponse:
         self.headers = headers or {}
         self._json_data = json_data
         self._json_error = json_error
+        self.closed = False
 
     def json(self) -> Any:
         if self._json_error is not None:
@@ -48,6 +48,9 @@ class StubResponse:
         del chunk_size
         if self.content:
             yield self.content
+
+    def close(self) -> None:
+        self.closed = True
 
 
 class StubSession:
@@ -83,6 +86,27 @@ class CoreTests(unittest.TestCase):
         out = fetch("https://example.com", session=StubSession(response))
         self.assertFalse(out.ok)
         self.assertEqual(out.error, "unsupported-version")
+
+    def test_manifest_url_uses_origin_root_for_pathful_base_url(self) -> None:
+        self.assertEqual(
+            manifest_url("https://example.com/blog/page"),
+            "https://example.com/.well-known/pagedigest.json",
+        )
+
+    def test_fetch_uses_origin_root_for_pathful_base_url(self) -> None:
+        response = StubResponse(
+            status_code=200,
+            content=json.dumps(valid_manifest()).encode("utf-8"),
+        )
+        session = StubSession(response)
+        out = fetch("https://example.com/blog/page", session=session)
+        self.assertTrue(out.ok)
+        self.assertEqual(session.last_url, "https://example.com/.well-known/pagedigest.json")
+
+    def test_fetch_rejects_invalid_base_url(self) -> None:
+        out = fetch("not-a-url")
+        self.assertFalse(out.ok)
+        self.assertEqual(out.error, "invalid-base-url")
 
     def test_fetch_handles_invalid_json(self) -> None:
         response = StubResponse(status_code=200, content=b"not-json")
@@ -138,9 +162,7 @@ class CoreTests(unittest.TestCase):
     def test_fetch_rejects_fragment_url_key(self) -> None:
         response = StubResponse(
             status_code=200,
-            content=json.dumps(
-                valid_manifest(entries={"/docs#section": {"rev": 1}})
-            ).encode("utf-8"),
+            content=json.dumps(valid_manifest(entries={"/docs#section": {"rev": 1}})).encode("utf-8"),
         )
         out = fetch("https://example.com", session=StubSession(response))
         self.assertFalse(out.ok)
@@ -149,9 +171,7 @@ class CoreTests(unittest.TestCase):
     def test_fetch_rejects_unencoded_space_in_url_key(self) -> None:
         response = StubResponse(
             status_code=200,
-            content=json.dumps(
-                valid_manifest(entries={"/posts/hello world": {"rev": 1}})
-            ).encode("utf-8"),
+            content=json.dumps(valid_manifest(entries={"/posts/hello world": {"rev": 1}})).encode("utf-8"),
         )
         out = fetch("https://example.com", session=StubSession(response))
         self.assertFalse(out.ok)
@@ -160,9 +180,7 @@ class CoreTests(unittest.TestCase):
     def test_fetch_rejects_invalid_entry_rev(self) -> None:
         response = StubResponse(
             status_code=200,
-            content=json.dumps(
-                valid_manifest(entries={"/": {"rev": "1"}})
-            ).encode("utf-8"),
+            content=json.dumps(valid_manifest(entries={"/": {"rev": "1"}})).encode("utf-8"),
         )
         out = fetch("https://example.com", session=StubSession(response))
         self.assertFalse(out.ok)
@@ -171,9 +189,7 @@ class CoreTests(unittest.TestCase):
     def test_fetch_rejects_boolean_entry_rev(self) -> None:
         response = StubResponse(
             status_code=200,
-            content=json.dumps(
-                valid_manifest(entries={"/": {"rev": True}})
-            ).encode("utf-8"),
+            content=json.dumps(valid_manifest(entries={"/": {"rev": True}})).encode("utf-8"),
         )
         out = fetch("https://example.com", session=StubSession(response))
         self.assertFalse(out.ok)
@@ -182,9 +198,7 @@ class CoreTests(unittest.TestCase):
     def test_fetch_rejects_invalid_digest(self) -> None:
         response = StubResponse(
             status_code=200,
-            content=json.dumps(
-                valid_manifest(entries={"/": {"rev": 1, "digest": "sha256:deadbeef"}})
-            ).encode("utf-8"),
+            content=json.dumps(valid_manifest(entries={"/": {"rev": 1, "digest": "sha256:deadbeef"}})).encode("utf-8"),
         )
         out = fetch("https://example.com", session=StubSession(response))
         self.assertFalse(out.ok)
@@ -193,9 +207,7 @@ class CoreTests(unittest.TestCase):
     def test_fetch_rejects_invalid_coverage_mode(self) -> None:
         response = StubResponse(
             status_code=200,
-            content=json.dumps(
-                valid_manifest(coverage={"mode": "everything"})
-            ).encode("utf-8"),
+            content=json.dumps(valid_manifest(coverage={"mode": "everything"})).encode("utf-8"),
         )
         out = fetch("https://example.com", session=StubSession(response))
         self.assertFalse(out.ok)
@@ -216,6 +228,7 @@ class CoreTests(unittest.TestCase):
         out = fetch("https://example.com", session=StubSession(response), max_bytes=32)
         self.assertFalse(out.ok)
         self.assertEqual(out.error, "manifest-too-large")
+        self.assertTrue(response.closed)
 
     def test_fetch_returns_not_modified_signal(self) -> None:
         response = StubResponse(status_code=304, headers={"ETag": "abc"})
@@ -260,17 +273,20 @@ class CoreTests(unittest.TestCase):
         verifier = load_tool("verify_over_wire_digests")
         response = StubResponse(status_code=200, content=b"publisher path")
         with patch.object(verifier.requests, "get", return_value=response) as request:
-            verifier.audit_entry(
-                "https://example.com", "/http://127.0.0.1/admin", "sha256:" + "0" * 64, 10
-            )
+            verifier.audit_entry("https://example.com", "/http://127.0.0.1/admin", "sha256:" + "0" * 64, 10)
         self.assertEqual(request.call_args.args[0], "https://example.com/http://127.0.0.1/admin")
+
+    def test_verifier_manifest_url_uses_origin_root_for_pathful_base_url(self) -> None:
+        verifier = load_tool("verify_over_wire_digests")
+        self.assertEqual(
+            verifier.build_manifest_url("https://example.com/blog/page", None),
+            "https://example.com/.well-known/pagedigest.json",
+        )
 
     def test_reconciler_rejects_scheme_relative_origin_escape(self) -> None:
         reconciler = load_tool("reconcile_served_digests")
         with patch.object(reconciler.requests, "get") as request:
-            digest, error = reconciler.fetch_identity_digest(
-                "https://example.com", "//127.0.0.1/admin", 10
-            )
+            digest, error = reconciler.fetch_identity_digest("https://example.com", "//127.0.0.1/admin", 10)
         self.assertIsNone(digest)
         self.assertEqual(error, "url-key-origin-escape")
         request.assert_not_called()
@@ -316,9 +332,7 @@ class CoreTests(unittest.TestCase):
                     "version": 1,
                     "generated": "2026-04-17T12:00:00Z",
                     "site_rev": 9,
-                    "entries": {
-                        "/": {"rev": 3}
-                    },
+                    "entries": {"/": {"rev": 3}},
                 }
             ).encode("utf-8"),
         )
@@ -340,9 +354,7 @@ class CoreTests(unittest.TestCase):
                     "version": 1,
                     "generated": "2026-04-17T12:00:00Z",
                     "site_rev": 11,
-                    "entries": {
-                        "/": {"rev": 2}
-                    },
+                    "entries": {"/": {"rev": 2}},
                 }
             ).encode("utf-8"),
         )

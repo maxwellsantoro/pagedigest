@@ -3,10 +3,10 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::{Parser, ValueEnum};
-use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
+use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use walkdir::WalkDir;
@@ -54,6 +54,10 @@ struct Args {
     /// Include per-entry sha256 digest values.
     #[arg(long, default_value_t = false)]
     with_digest: bool,
+
+    /// Coverage metadata to emit.
+    #[arg(long, value_enum, default_value_t = CoverageArg::Complete)]
+    coverage: CoverageArg,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
@@ -62,12 +66,31 @@ enum IndexStyle {
     File,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+enum CoverageArg {
+    Complete,
+    None,
+}
+
 #[derive(Debug, Serialize)]
 struct Manifest {
     version: u8,
     generated: String,
     site_rev: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    coverage: Option<Coverage>,
     entries: BTreeMap<String, ManifestEntry>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+struct Coverage {
+    mode: CoverageMode,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum CoverageMode {
+    Complete,
 }
 
 #[derive(Debug, Serialize)]
@@ -80,6 +103,8 @@ struct ManifestEntry {
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct State {
     site_rev: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    coverage: Option<Coverage>,
     entries: BTreeMap<String, StateEntry>,
 }
 
@@ -91,19 +116,28 @@ struct StateEntry {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let input_dir = fs::canonicalize(&args.input_dir)
-        .with_context(|| format!("failed to resolve input directory {}", args.input_dir.display()))?;
+    let input_dir = fs::canonicalize(&args.input_dir).with_context(|| {
+        format!(
+            "failed to resolve input directory {}",
+            args.input_dir.display()
+        )
+    })?;
 
     let output_path = args
         .output
         .unwrap_or_else(|| input_dir.join(".well-known").join("pagedigest.json"));
 
-    let state_path = args
-        .state
-        .unwrap_or_else(|| input_dir.parent().unwrap_or(Path::new(".")).join(".pagedigest").join("state.json"));
+    let state_path = args.state.unwrap_or_else(|| {
+        input_dir
+            .parent()
+            .unwrap_or(Path::new("."))
+            .join(".pagedigest")
+            .join("state.json")
+    });
 
     let previous = load_state(&state_path)?;
     let current_digests = collect_digests(&input_dir, args.index_style, &args.include_ext)?;
+    let coverage = coverage_for_arg(args.coverage);
 
     let mut any_change = false;
     let mut entries = BTreeMap::new();
@@ -133,6 +167,10 @@ fn main() -> Result<()> {
         any_change = true;
     }
 
+    if previous.coverage != coverage {
+        any_change = true;
+    }
+
     let site_rev = if any_change {
         previous.site_rev + 1
     } else {
@@ -143,11 +181,13 @@ fn main() -> Result<()> {
         version: 1,
         generated: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
         site_rev,
+        coverage: coverage.clone(),
         entries,
     };
 
     let next_state = State {
         site_rev,
+        coverage,
         entries: current_digests
             .into_iter()
             .map(|(k, digest)| {
@@ -173,12 +213,16 @@ fn load_state(path: &Path) -> Result<State> {
 
     let raw = fs::read_to_string(path)
         .with_context(|| format!("failed reading state file {}", path.display()))?;
-    let state: State =
-        serde_json::from_str(&raw).with_context(|| format!("invalid state JSON {}", path.display()))?;
+    let state: State = serde_json::from_str(&raw)
+        .with_context(|| format!("invalid state JSON {}", path.display()))?;
     Ok(state)
 }
 
-fn collect_digests(root: &Path, index_style: IndexStyle, include_ext: &[String]) -> Result<BTreeMap<String, String>> {
+fn collect_digests(
+    root: &Path,
+    index_style: IndexStyle,
+    include_ext: &[String],
+) -> Result<BTreeMap<String, String>> {
     let mut out = BTreeMap::new();
 
     for entry in WalkDir::new(root) {
@@ -215,8 +259,19 @@ fn collect_digests(root: &Path, index_style: IndexStyle, include_ext: &[String])
 
 fn should_include(path: &Path, include_ext: &[String]) -> bool {
     match path.extension().and_then(|e| e.to_str()) {
-        Some(ext) => include_ext.iter().any(|allowed| allowed.eq_ignore_ascii_case(ext)),
+        Some(ext) => include_ext
+            .iter()
+            .any(|allowed| allowed.eq_ignore_ascii_case(ext)),
         None => false,
+    }
+}
+
+fn coverage_for_arg(coverage: CoverageArg) -> Option<Coverage> {
+    match coverage {
+        CoverageArg::Complete => Some(Coverage {
+            mode: CoverageMode::Complete,
+        }),
+        CoverageArg::None => None,
     }
 }
 
@@ -227,7 +282,10 @@ fn encode_path_segment(segment: &str) -> String {
 fn rel_to_url_key(rel: &Path, index_style: IndexStyle) -> Result<String> {
     let rel_str = rel.to_string_lossy().replace('\\', "/");
     let segments: Vec<&str> = rel_str.split('/').collect();
-    let encoded_segments: Vec<String> = segments.iter().map(|segment| encode_path_segment(segment)).collect();
+    let encoded_segments: Vec<String> = segments
+        .iter()
+        .map(|segment| encode_path_segment(segment))
+        .collect();
     let encoded_rel = encoded_segments.join("/");
 
     let url = match index_style {
@@ -258,9 +316,12 @@ fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<()> {
-    let parent = path
-        .parent()
-        .with_context(|| format!("destination path {} has no parent directory", path.display()))?;
+    let parent = path.parent().with_context(|| {
+        format!(
+            "destination path {} has no parent directory",
+            path.display()
+        )
+    })?;
     fs::create_dir_all(parent)
         .with_context(|| format!("failed creating directory {}", parent.display()))?;
 
@@ -316,12 +377,11 @@ mod tests {
 
         let mut skipped = fs::File::create(root.join(".well-known").join("pagedigest.json"))
             .expect("create manifest");
-        skipped
-            .write_all(b"{}")
-            .expect("write manifest fixture");
+        skipped.write_all(b"{}").expect("write manifest fixture");
 
         let include_ext = vec!["html".to_string()];
-        let digests = collect_digests(root, IndexStyle::TrailingSlash, &include_ext).expect("collect digests");
+        let digests = collect_digests(root, IndexStyle::TrailingSlash, &include_ext)
+            .expect("collect digests");
         assert!(digests.contains_key("/"));
         assert!(!digests.contains_key("/.well-known/pagedigest.json"));
     }
@@ -333,7 +393,8 @@ mod tests {
             "/"
         );
         assert_eq!(
-            rel_to_url_key(Path::new("about/index.html"), IndexStyle::TrailingSlash).expect("url key"),
+            rel_to_url_key(Path::new("about/index.html"), IndexStyle::TrailingSlash)
+                .expect("url key"),
             "/about/"
         );
     }
@@ -368,7 +429,8 @@ mod tests {
         let blocked = root.join("blocked");
         fs::create_dir(&blocked).expect("create blocked dir");
         fs::write(blocked.join("secret.html"), b"nope").expect("write secret");
-        fs::set_permissions(&blocked, fs::Permissions::from_mode(0o644)).expect("remove traverse permission");
+        fs::set_permissions(&blocked, fs::Permissions::from_mode(0o644))
+            .expect("remove traverse permission");
 
         let include_ext = vec!["html".to_string()];
         let result = collect_digests(root, IndexStyle::TrailingSlash, &include_ext);

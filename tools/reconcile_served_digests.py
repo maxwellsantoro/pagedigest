@@ -43,7 +43,9 @@ class Reconciliation:
     served_digest: str | None = None
 
 
-def fetch_identity_digest(base_url: str, path: str, timeout: int) -> tuple[str | None, str]:
+def fetch_identity_digest(
+    base_url: str, path: str, timeout: int
+) -> tuple[str | None, str]:
     try:
         url = resolve_url_key(base_url, path)
     except ValueError as exc:
@@ -90,7 +92,9 @@ def reconcile_entry(
             f"served bytes are stable but differ from manifest: {first}",
             served_digest=first,
         )
-    return Reconciliation(path, "unstable", f"served bytes vary per request: {first} vs {second}")
+    return Reconciliation(
+        path, "unstable", f"served bytes vary per request: {first} vs {second}"
+    )
 
 
 def main() -> int:
@@ -152,10 +156,15 @@ def main() -> int:
 
     if changed:
         manifest["generated"] = (
-            datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+            datetime.now(timezone.utc)
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z")
         )
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-        print(f"rewrote {manifest_path} (redeploy the manifest to publish the corrections)")
+        print(
+            f"rewrote {manifest_path} (redeploy the manifest to publish the corrections)"
+        )
 
     # Non-zero when problems remain unapplied, so this can gate a deploy.
     if problem_count > 0 and not args.apply:
