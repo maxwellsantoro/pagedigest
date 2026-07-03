@@ -13,7 +13,7 @@ dotrepo dogfood, agent consumption, and only then broad distribution.
 | Task | Status |
 |------|--------|
 | Pre-public docs/tests polish | done |
-| Tag `v1.0.0-rc.1` | pending |
+| Tag `v1.0.0-rc.1` | done — released 2026-07-02 |
 | Adopter feedback channel (Issues/Discussions) | pending |
 | RC announcement | pending |
 | Prior-art comparison on README/site/spec | done |
