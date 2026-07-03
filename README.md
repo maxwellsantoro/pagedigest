@@ -30,16 +30,40 @@ For a 10,000-page site that changes 20 pages a week, a consumer makes **one mani
 
 **Normative details:** [SPEC.md](./SPEC.md). **Social bargain:** [CONTRACT.md](./CONTRACT.md). **Full doc index:** [docs/README.md](./docs/README.md).
 
-## Why not sitemap.xml or ETag?
+## Why not existing mechanisms?
 
-- `site_rev` is a one-request site-level fast path.
-- Monotonic integers avoid timestamp ambiguity and clock skew.
-- `sitemap.xml` `<lastmod>` is often coarse or stale; `rev`/`site_rev` are explicit protocol state.
-- `ETag`/`If-None-Match` still costs one request per URL; `pagedigest` is one manifest plus only changed pages.
+Sitemaps tell you what exists. ETags tell you, one request at a time, what
+changed. `pagedigest` tells you—in one request—what did not.
+
+| Mechanism | Its job | The remaining gap |
+|---|---|---|
+| Sitemap + `lastmod` | Discovery and advisory timestamps | No monotonic site-wide fast path or audit model |
+| ETag / 304 | Per-resource validation | Still one request per URL |
+| RSS / Atom | Recent-entry feed | Does not establish that older or omitted pages stayed unchanged |
+| IndexNow | Publisher push to participating search engines | Not a pullable manifest for arbitrary consumers |
+| WebSub | Hub-mediated push | Requires subscription and callback state |
+| CDN / cache | Make repeated serving cheaper | Still serves or validates the read |
+
+The full non-normative comparison and primary references are in
+[SPEC.md §8](./SPEC.md#8-relationship-to-existing-mechanisms-non-normative).
+
+## Observable cooperation
+
+After checking a manifest, a consumer may make that observation visible in
+ordinary publisher logs:
+
+```http
+PageDigest-State: site_rev=18294
+```
+
+The optional version 1 header is a corroborating signal, not authentication.
+Publishers combine it with manifest access and unchanged-page overfetch; see
+[the syntax and spoofing analysis](./SPEC.md#54-optional-cooperation-request-header)
+and [deployment recipes](./docs/cooperative-automation.md).
 
 ## Status
 
-**v1 release candidate** — wire format stable at `/.well-known/pagedigest.json`. Discovery uses `Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"` until IANA registration completes.
+**v1 release candidate** — wire format stable at `/.well-known/pagedigest.json`. Discovery uses `Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"` until IANA registration completes. Version 1 reserves `PageDigest-State` as optional client behavior; full intermediary semantics remain a planned v1.1 extension.
 
 Reference implementations ship in this repo. Package registries and SSG plugins are **planned** — see [ROADMAP.md](./ROADMAP.md). RC adopters should not expect breaking field or semantics changes before v1.0.
 

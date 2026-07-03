@@ -135,6 +135,13 @@
   }
   .manifest-caption { font-family: var(--mono); font-size: 0.85rem; color: var(--ink-soft); }
 
+  /* Prior art */
+  .comparison { width: 100%; border-collapse: collapse; margin-top: 22px; font-size: 0.94rem; }
+  .comparison th, .comparison td { text-align: left; vertical-align: top; padding: 12px 14px; border-top: 1px solid var(--line); }
+  .comparison th { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.05em; text-transform: uppercase; }
+  .comparison td:first-child { font-family: var(--mono); white-space: nowrap; }
+  .state-header { background: var(--ink); color: #DDE7EA; border-radius: 10px; padding: 13px 16px; overflow-x: auto; font-family: var(--mono); font-size: 0.86rem; }
+
   /* Steps — a real sequence */
   ol.steps { list-style: none; counter-reset: step; margin: 26px 0 0; padding: 0; display: grid; gap: 0; }
   ol.steps li {
@@ -206,6 +213,7 @@
     .argument { grid-template-columns: 1fr; }
     .argument figure.publisher { border-right: 0; border-bottom: 1px solid var(--line); }
     .bargain { grid-template-columns: 1fr; }
+    .comparison { display: block; overflow-x: auto; }
     ol.steps li { grid-template-columns: 40px 1fr; }
   }
   @media (max-width: 460px) {
@@ -224,6 +232,7 @@
     <nav class="top-links" aria-label="Page navigation">
       <a href="#manifest">Manifest</a>
       <a href="#how">How it works</a>
+      <a href="#different">Why different</a>
       <a href="#live">Live</a>
       <a href="#bargain">The bargain</a>
       <a href="https://github.com/maxwellsantoro/pagedigest">GitHub</a>
@@ -303,6 +312,29 @@
     </div>
   </section>
 
+  <section id="different">
+    <div class="wrap" style="padding:0">
+      <h2>Why this is not another sitemap or cache</h2>
+      <p>Sitemaps tell you what exists. ETags tell you, one request at a time, what changed.
+      pagedigest tells you — in one request — what didn&rsquo;t.</p>
+      <table class="comparison">
+        <thead><tr><th>Mechanism</th><th>Its job</th><th>The remaining gap</th></tr></thead>
+        <tbody>
+          <tr><td>sitemap + lastmod</td><td>Discovery and advisory timestamps</td><td>No monotonic site-wide fast path or audit model</td></tr>
+          <tr><td>ETag / 304</td><td>Per-resource validation</td><td>Still one request per URL</td></tr>
+          <tr><td>RSS / Atom</td><td>Recent-entry feed</td><td>Cannot establish that older or omitted pages stayed unchanged</td></tr>
+          <tr><td>IndexNow</td><td>Publisher push to participating search engines</td><td>Not a pullable manifest for arbitrary consumers</td></tr>
+          <tr><td>WebSub</td><td>Hub-mediated push</td><td>Requires subscription and callback state</td></tr>
+          <tr><td>CDN / cache</td><td>Make repeated serving cheaper</td><td>Still serves or validates the read</td></tr>
+        </tbody>
+      </table>
+      <p>After checking the manifest, a consumer can make cooperation visible in logs:</p>
+      <pre class="state-header">PageDigest-State: site_rev=18294</pre>
+      <p>The header is corroborating evidence, not authentication. Publishers compare it with
+      manifest access and unchanged-page overfetch before changing treatment.</p>
+    </div>
+  </section>
+
   <section id="live">
     <div class="wrap" style="padding:0">
       <h2>Live in production</h2>
@@ -310,8 +342,9 @@
         <div class="stamp">First production publisher</div>
         <p><a href="https://dotrepo.org">dotrepo.org</a> — a public index of repository
         metadata for AI agents — publishes a pagedigest manifest covering its full corpus:
-        thousands of JSON records that refresh continuously. Mirrors and agent caches sync the
-        whole index with one manifest request plus only the files whose revision moved.</p>
+        613 repositories and 3,067 JSON payloads in its current checked-in snapshot. Mirrors and
+        agent caches sync the whole index with one manifest request plus only the files whose
+        revision moved.</p>
         <pre>curl -s https://dotrepo.org/.well-known/pagedigest.json | jq .site_rev</pre>
       </div>
       <div class="proof" style="margin-top:14px">

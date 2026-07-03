@@ -17,6 +17,7 @@ Requires Python ≥3.9. Runtime dependency: `requests`.
 - `audit` — identity-encoding digest check
 - `check_site` — `fetch` + `diff` + optional sampled audit plan
 - `validate_manifest`, `resolve_url_key`, `manifest_url` — validation and URL helpers
+- `format_state_header`, `parse_state_header` — strict optional `PageDigest-State` helpers
 
 ## Example
 
@@ -30,6 +31,23 @@ decision = check_site(
     sample_audit_rate=0.01,
 )
 ```
+
+After a successful manifest check, an integration may make its observed state
+visible on subsequent page requests:
+
+```python
+from pagedigest import format_state_header
+
+headers = {
+    "PageDigest-State": format_state_header(
+        decision["manifest"]["site_rev"],
+        "/.well-known/pagedigest.json",
+    )
+}
+```
+
+This is a corroborating observation signal, not authentication. See
+[SPEC.md §5.4](../../SPEC.md#54-optional-cooperation-request-header).
 
 Conformance fixtures: `tests/test_vectors.py` exercises `../../test-vectors/`.
 

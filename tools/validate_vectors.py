@@ -8,7 +8,9 @@ fixture bundle remains internally coherent and usable by implementations.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +20,17 @@ from jsonschema import Draft202012Validator
 ROOT = Path(__file__).resolve().parents[1]
 VECTORS = ROOT / "test-vectors"
 SCHEMA_PATH = ROOT / "pagedigest.schema.json"
+
+
+def load_consumer_core() -> Any:
+    path = ROOT / "implementations" / "python-consumer" / "pagedigest" / "core.py"
+    spec = importlib.util.spec_from_file_location("pagedigest_vector_core", path)
+    if spec is None or spec.loader is None:
+        raise ValueError("could not load Python consumer core")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -155,6 +168,25 @@ def assert_url_key_variants(path: Path) -> None:
             )
 
 
+def assert_header_formats(path: Path) -> None:
+    core = load_consumer_core()
+    data = read_json(path)
+    for case in data.get("cases", []):
+        value = case["value"]
+        try:
+            parsed = core.parse_state_header(value)
+        except ValueError:
+            if case.get("valid"):
+                raise ValueError(
+                    f"expected valid PageDigest-State value: {value}"
+                ) from None
+        else:
+            if not case.get("valid"):
+                raise ValueError(f"expected invalid PageDigest-State value: {value}")
+            if parsed != case.get("parsed"):
+                raise ValueError(f"unexpected parsed PageDigest-State value: {value}")
+
+
 def main() -> int:
     validator = load_schema_validator()
 
@@ -174,6 +206,7 @@ def main() -> int:
         "rollback-content",
         "audit-match",
         "audit-mismatch",
+        "header-formats",
     }
     missing = expected_ids - case_ids
     if missing:
@@ -241,6 +274,7 @@ def main() -> int:
         VECTORS / "audit-mismatch" / "page-body.bin",
         expect_match=False,
     )
+    assert_header_formats(VECTORS / "header-formats.json")
 
     print("test-vectors validation passed")
     return 0

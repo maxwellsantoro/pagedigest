@@ -8,7 +8,17 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from pagedigest.core import audit, check_site, diff, fetch, manifest_url, resolve_url_key, validate_manifest
+from pagedigest.core import (
+    audit,
+    check_site,
+    diff,
+    fetch,
+    format_state_header,
+    manifest_url,
+    parse_state_header,
+    resolve_url_key,
+    validate_manifest,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -78,6 +88,35 @@ def valid_manifest(**overrides: Any) -> dict[str, Any]:
 
 
 class CoreTests(unittest.TestCase):
+    def test_state_header_round_trips_minimal_and_extended_forms(self) -> None:
+        self.assertEqual(format_state_header(18294), "site_rev=18294")
+        extended = format_state_header(18294, "/.well-known/pagedigest.json")
+        self.assertEqual(
+            extended,
+            'site_rev=18294; manifest="/.well-known/pagedigest.json"',
+        )
+        self.assertEqual(
+            parse_state_header(extended),
+            {"site_rev": 18294, "manifest": "/.well-known/pagedigest.json"},
+        )
+
+    def test_state_header_rejects_ambiguous_or_unsafe_forms(self) -> None:
+        for value in (
+            "site_rev=-1",
+            "site_rev=01",
+            "site_rev=1;manifest=/.well-known/pagedigest.json",
+            'site_rev=1; manifest="https://example.com/manifest"',
+            'site_rev=1; manifest="/manifest#fragment"',
+            "other=1",
+        ):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                parse_state_header(value)
+
+        with self.assertRaises(ValueError):
+            format_state_header(True)
+        with self.assertRaises(ValueError):
+            format_state_header(1, '"unsafe"')
+
     def test_fetch_rejects_unsupported_version(self) -> None:
         response = StubResponse(
             status_code=200,

@@ -180,6 +180,16 @@ to have this block lifted.
 
 The escalation is gradient, not binary. At each level, the cooperative path is still available to the crawler. Nothing here prevents the crawler from adopting the manifest and resuming normal access. The block is always reversible through compliance.
 
+## Making cooperation observable
+
+A consumer may send `PageDigest-State` after checking the manifest. The header
+makes its observed revision log-visible, but it does not prove identity or good
+behavior. Publishers should corroborate it with manifest access and a low
+unchanged-page overfetch ratio before changing treatment. The specification
+defines the reserved syntax; the [cooperative automation
+guide](./docs/cooperative-automation.md) provides the classification table and
+nginx/Cloudflare recipes.
+
 ## What the protocol is not
 
 `pagedigest` is not an anti-scraping protocol. A consumer that fetches the same URL once per day, respects the manifest's `rev` integer, and only re-fetches when content actually changes is not being restricted. That is the intended use.

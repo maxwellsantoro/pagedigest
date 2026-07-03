@@ -1,0 +1,25 @@
+{
+  "header": "PageDigest-State",
+  "cases": [
+    {
+      "value": "site_rev=18294",
+      "valid": true,
+      "parsed": {"site_rev": 18294}
+    },
+    {
+      "value": "site_rev=18294; manifest=\"/.well-known/pagedigest.json\"",
+      "valid": true,
+      "parsed": {
+        "site_rev": 18294,
+        "manifest": "/.well-known/pagedigest.json"
+      }
+    },
+    {"value": "site_rev=0", "valid": true, "parsed": {"site_rev": 0}},
+    {"value": "site_rev=-1", "valid": false},
+    {"value": "site_rev=01", "valid": false},
+    {"value": "site_rev=18294;manifest=/.well-known/pagedigest.json", "valid": false},
+    {"value": "site_rev=18294; manifest=\"https://example.com/manifest\"", "valid": false},
+    {"value": "site_rev=18294; manifest=\"/manifest#fragment\"", "valid": false},
+    {"value": "other=18294", "valid": false}
+  ]
+}

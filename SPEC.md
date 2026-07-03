@@ -291,6 +291,29 @@ The `generated` timestamp is informational, not authoritative protocol state.
 
 Consumers MAY treat implausibly old manifests as suspicious based on their own freshness requirements. A stale manifest MAY justify increased digest-audit rate or temporary fallback behavior until fresher manifest updates are observed.
 
+### 5.2.2 Audit economics and failure scope (non-normative)
+
+Audits deliberately spend a fraction of the requests saved by manifest-derived skips. A practical baseline is:
+
+- begin with a neutral trust state
+- audit 1%–5% of eligible skips while establishing trust
+- audit 0.1%–1% for an established publisher
+- retry one mismatch observed near a fresh publish before penalizing the publisher, because edge races are often innocent
+- recover trust after a consumer-defined number of consecutive clean audit windows
+
+Failures should be contained to the smallest scope supported by the evidence:
+
+| Observation | Suggested scope and response |
+|---|---|
+| One mismatch on one URL near a deploy | URL-level suspicion; retry later |
+| Repeated mismatch on the same URL | Ignore that URL's digest/revision and fetch it conventionally |
+| Mismatches across many URLs | Site-level trust downgrade |
+| Per-URL `rev` decrease | URL-level anomaly; site-level if widespread |
+| `site_rev` decrease | Site-level anomaly; fall back to conventional crawling |
+| Global revision churn without content change | Low utility rather than dishonesty; reduce reliance |
+
+Trust state should be recoverable. A transient deployment race should not become a permanent sentence, while repeated failures should not be collapsed into one innocent event.
+
 ### 5.3 Error handling
 
 Consumers SHOULD handle the following error conditions gracefully, falling back to default crawling behavior rather than erroring out:
@@ -303,6 +326,36 @@ Consumers SHOULD handle the following error conditions gracefully, falling back 
 - Audit hash mismatch (per section 5.2)
 
 The intent is that a malformed manifest does not break crawling — it just reverts the consumer to the behavior they would have had without the manifest.
+
+### 5.4 Optional cooperation request header
+
+Version 1 reserves `PageDigest-State` as optional client behavior. A consumer MAY send it on a page request after checking that origin's manifest:
+
+```http
+PageDigest-State: site_rev=18294
+```
+
+The optional extended form identifies the origin-relative manifest path:
+
+```http
+PageDigest-State: site_rev=18294; manifest="/.well-known/pagedigest.json"
+```
+
+The grammar for the reserved version 1 form is:
+
+```abnf
+PageDigest-State = "site_rev=" 1*DIGIT [ "; manifest=" DQUOTE absolute-path DQUOTE ]
+```
+
+Leading zeroes are not allowed except for the value `0`. The `manifest` value MUST begin with `/`, MUST NOT contain a fragment, quote, backslash, carriage return, or line feed, and is not an absolute URL. Consumers MUST NOT send a revision they did not observe from the named origin. Publishers MUST treat an absent or malformed header as no cooperation signal; it does not make the page request invalid.
+
+The header means: "Before this request, I checked this origin's manifest and observed this `site_rev`." It is an observation claim, not authentication, authorization, proof of identity, or proof that every subsequent fetch is necessary. Version 1 publishers MAY log it and MAY use it as one input to rate-limit classification. Full intermediary policy is deferred to the version 1.1 extension.
+
+#### 5.4.1 Why the initial signal does not require cryptography
+
+To send a plausible current revision, a client ordinarily has to fetch the manifest, which is already half of the cooperative behavior. The remaining question—whether it fetches covered URLs whose revisions did not change—is visible in the publisher's own request logs. A matching state value combined with low unchanged-page overfetch is therefore self-corroborating behavior, regardless of the client's stated intent.
+
+The header alone remains weak evidence. Publishers should ignore it unless corroborated by manifest access and fetch behavior. Impossible future revisions, persistently stale revisions, or a matching revision paired with unchanged-page overfetch are inexpensive anomaly signals; they are not cryptographic findings.
 
 ## 6. Reserved extensions
 
@@ -338,23 +391,34 @@ As a baseline expectation: consumers MAY decline to process manifests exceeding 
 
 A manifest exposes the complete list of URLs covered on a site, including URLs that may not be linked from the site's navigation. Publishers should not list URLs in the manifest that they do not wish to be publicly enumerable. This is analogous to the situation with `sitemap.xml`.
 
-## 8. Relationship to existing HTTP mechanisms
+## 8. Relationship to existing mechanisms (non-normative)
 
-`pagedigest` is designed to complement, not replace, existing HTTP caching mechanisms.
+`pagedigest` is pre-fetch revalidation, not a replacement for discovery, caching, push delivery, or access policy. Sitemaps tell a consumer what exists. ETags tell it, one request at a time, whether a representation changed. `pagedigest` tells it, in one request, what did not change across the covered set.
 
-- `ETag` and `If-None-Match` remain useful for per-request validation. A consumer that has determined via `pagedigest` that a URL should be fetched may still use conditional request headers when fetching it.
+| Mechanism | What it does | Why `pagedigest` differs |
+|---|---|---|
+| `sitemap.xml` + `lastmod` | URL discovery plus advisory timestamps | `lastmod` is timestamp-based and has no site-wide monotonic fast path or audit model. Google documents that it uses `lastmod` only when the value is consistently and verifiably accurate. |
+| `ETag` / `If-None-Match` / 304 | Per-representation conditional validation | It still requires one request per URL. `pagedigest` can skip the entire covered set when `site_rev` is unchanged. A changed URL may still be fetched conditionally with an ETag. |
+| `Last-Modified` / `If-Modified-Since` | Timestamp-based conditional validation | It is also per-resource and subject to timestamp granularity. `pagedigest` uses explicit monotonic state across the covered set. |
+| RSS / Atom | A feed of recent entries | A feed does not establish that every omitted or older covered page stayed unchanged. |
+| IndexNow | Publisher submission of changed URLs to participating search engines | It is a publisher-to-engine push channel with ownership-key verification, not a stateless manifest arbitrary consumers can pull. |
+| WebSub | Hub-mediated push subscriptions | It requires hub and subscription/callback state. `pagedigest` is stateless pull. |
+| Website monitors | Private change alerts for one watcher | `pagedigest` is a public change surface reusable by many independent consumers. |
+| CDN / HTTP cache | Stores responses so repeated serving is cheaper | A cache still serves or validates the read. `pagedigest` lets a stateful consumer avoid many reads. |
 
-- `Last-Modified` and `If-Modified-Since` serve a similar role. `pagedigest` does not change their semantics.
-
-- `robots.txt` governs what a crawler is allowed to fetch. `pagedigest` governs which URLs have changed. A crawler should consult both.
-
-- `sitemap.xml` governs URL discovery. `pagedigest` governs change detection. A crawler can use `sitemap.xml` to find URLs and `pagedigest` to decide which to fetch.
+`robots.txt` remains access policy; `pagedigest` is change detection. Consumers should apply both.
 
 ## 9. References
 
 - RFC 3986: Uniform Resource Identifier (URI): Generic Syntax
 - RFC 8615: Well-Known Uniform Resource Identifiers (URIs)
 - RFC 8288: Web Linking
+- RFC 9110: HTTP Semantics, including validators and conditional requests: <https://www.rfc-editor.org/rfc/rfc9110>
+- RFC 9111: HTTP Caching: <https://www.rfc-editor.org/rfc/rfc9111>
+- Google Search Central, sitemap construction and `lastmod` accuracy: <https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap>
+- IndexNow protocol documentation: <https://www.indexnow.org/documentation>
+- W3C WebSub Recommendation: <https://www.w3.org/TR/websub/>
+- RFC 4287: Atom Syndication Format: <https://www.rfc-editor.org/rfc/rfc4287>
 - IANA Well-Known URIs registry: <https://www.iana.org/assignments/well-known-uris/well-known-uris.xhtml>
 - IANA Link Relation Types registry: <https://www.iana.org/assignments/link-relations/link-relations.xhtml>
 

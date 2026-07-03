@@ -4,6 +4,10 @@
 
 **Next:** v1.0 — distribution, integrations, IANA filings. Gates: [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
 
+The cross-project execution order is trust hygiene first, then the v1 spec
+clarifications (`PageDigest-State`, prior-art, and audit economics), measured
+dotrepo dogfood, agent consumption, and only then broad distribution.
+
 ## Phase 1 — Public RC
 
 | Task | Status |
@@ -12,6 +16,9 @@
 | Tag `v1.0.0-rc.1` | pending |
 | Adopter feedback channel (Issues/Discussions) | pending |
 | RC announcement | pending |
+| Prior-art comparison on README/site/spec | in progress |
+| Reserve optional `PageDigest-State` + vectors | in progress |
+| Audit-economics failure-scope guidance | in progress |
 
 ## Phase 2 — Distribution
 
@@ -53,7 +60,9 @@ All [1.0 Gate](./RELEASE_CHECKLIST.md#10-gate) items checked → tag `v1.0.0`, u
 
 ## Post-1.0 (reserved)
 
-Manifest sharding, content extracts, DNS discovery, additional hash algorithms — see [SPEC.md](./SPEC.md) §6.
+The v1.1 extension will finalize `PageDigest-State` intermediary semantics using
+lessons from measured consumers. Manifest sharding, content extracts, DNS
+discovery, and additional hash algorithms remain reserved; see [SPEC.md](./SPEC.md) §6.
 
 ## Contribute
 

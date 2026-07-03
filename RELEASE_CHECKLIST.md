@@ -11,6 +11,9 @@ Objective gates for v1 RC and v1.0. Execution order and priorities: [ROADMAP.md]
 - [x] Manifest conditional requests guidance is explicit (`ETag`/`Last-Modified` with `If-None-Match`/`If-Modified-Since`).
 - [x] Digest-free trust note is explicit (no cryptographic audit path; soft evidence handling guidance).
 - [x] Consumer class scope is explicit (stateful periodic consumers are primary target; stateless one-shot caveat).
+- [x] Existing mechanisms are compared directly with primary references.
+- [x] Audit guidance defines failure scope, recovery, and trust-building ranges.
+- [x] `PageDigest-State` is reserved as optional version 1 client behavior with strict syntax and spoofing limits.
 
 ## RC Deliverables
 
@@ -33,6 +36,7 @@ Objective gates for v1 RC and v1.0. Execution order and priorities: [ROADMAP.md]
 - [x] Unknown-field handling explicit.
 - [x] Discovery via URI extension relation in `Link` headers (pending IANA).
 - [x] Deployment consistency and transient audit-mismatch guidance documented.
+- [x] Cooperation header syntax has conformance vectors and reference helpers.
 
 ## 1.0 Gate
 

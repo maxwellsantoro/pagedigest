@@ -78,6 +78,11 @@
       "manifest": "audit-mismatch/manifest.json",
       "body": "audit-mismatch/page-body.bin",
       "kind": "audit-mismatch"
+    },
+    {
+      "id": "header-formats",
+      "file": "header-formats.json",
+      "kind": "request-header-syntax"
     }
   ]
 }

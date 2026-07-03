@@ -16,6 +16,7 @@ DEFAULT_MAX_MANIFEST_BYTES = 10 * 1024 * 1024
 URL_KEY_PATTERN = re.compile(r"^/([^#]*)?$")
 DIGEST_PATTERN = re.compile(r"^sha256:[a-f0-9]{64}$")
 TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+00:00)$")
+STATE_HEADER_PATTERN = re.compile(r'^site_rev=(0|[1-9]\d*)(?:; manifest="([^"\\\r\n]+)")?$')
 UNRESERVED = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 
 
@@ -31,6 +32,36 @@ class FetchResult:
 
 def _is_non_negative_int(value: Any) -> bool:
     return type(value) is int and value >= 0
+
+
+def format_state_header(site_rev: int, manifest: str | None = None) -> str:
+    """Format the optional PageDigest-State request header."""
+    if not _is_non_negative_int(site_rev):
+        raise ValueError("invalid-site-rev")
+    value = f"site_rev={site_rev}"
+    if manifest is not None:
+        if (
+            not isinstance(manifest, str)
+            or not manifest.startswith("/")
+            or "#" in manifest
+            or any(ch in manifest for ch in ('"', "\\", "\r", "\n"))
+        ):
+            raise ValueError("invalid-state-manifest")
+        value += f'; manifest="{manifest}"'
+    return value
+
+
+def parse_state_header(value: str) -> dict[str, Any]:
+    """Parse PageDigest-State using the strict v1 optional-client syntax."""
+    if not isinstance(value, str) or (match := STATE_HEADER_PATTERN.fullmatch(value)) is None:
+        raise ValueError("invalid-state-header")
+    manifest = match.group(2)
+    if manifest is not None and (not manifest.startswith("/") or "#" in manifest):
+        raise ValueError("invalid-state-manifest")
+    return {
+        "site_rev": int(match.group(1)),
+        **({"manifest": manifest} if manifest is not None else {}),
+    }
 
 
 def _valid_percent_encoding(value: str, index: int) -> bool:
