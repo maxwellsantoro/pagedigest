@@ -109,6 +109,45 @@ See Cloudflare's current [Workers best
 practices](https://developers.cloudflare.com/workers/best-practices/workers-best-practices/)
 and [Bot Management documentation](https://developers.cloudflare.com/bots/).
 
+## pagedigest.org dogfood observer
+
+The pagedigest.org static site ships a Cloudflare Pages advanced-mode Worker at
+`site/_worker.js`. It follows Cloudflare's Pages Functions pattern: handle the
+protocol-observer endpoint, then fall through to static assets with
+`env.ASSETS.fetch(request)`.
+
+It always writes structured request logs for:
+
+- manifest requests
+- whether `PageDigest-State` was present
+- whether the header matched the reserved v1 syntax
+- the observed `site_rev` when valid
+
+It exposes a small same-origin JSON endpoint:
+
+```text
+/__pagedigest/cooperation.json
+```
+
+Without storage configured, the endpoint reports `configured: false` and the
+site remains fully static. To persist the tiny counter, create a Cloudflare KV
+namespace and bind it to the Pages project as `PAGEDIGEST_OBSERVATIONS`.
+
+Example setup:
+
+```bash
+npx wrangler kv namespace create PAGEDIGEST_OBSERVATIONS
+```
+
+Then add the returned namespace as a Pages KV binding named
+`PAGEDIGEST_OBSERVATIONS` in the Cloudflare dashboard or project configuration.
+After deployment, the homepage will surface valid `PageDigest-State` observations
+and manifest request counts from that endpoint.
+
+The counter is intentionally approximate. KV read-modify-write increments can
+lose concurrent updates; that is acceptable for a public proof widget. Treat
+Workers logs or Analytics Engine as the evidence source for real enforcement.
+
 ## Spoofing and limits
 
 A client can copy a state value. That is why the header alone earns nothing.

@@ -16,9 +16,10 @@ dotrepo dogfood, agent consumption, and only then broad distribution.
 | Tag `v1.0.0-rc.1` | pending |
 | Adopter feedback channel (Issues/Discussions) | pending |
 | RC announcement | pending |
-| Prior-art comparison on README/site/spec | in progress |
-| Reserve optional `PageDigest-State` + vectors | in progress |
-| Audit-economics failure-scope guidance | in progress |
+| Prior-art comparison on README/site/spec | done |
+| Reserve optional `PageDigest-State` + vectors | done |
+| Audit-economics failure-scope guidance | done |
+| pagedigest.org `PageDigest-State` observer | in progress — Worker shipped; bind KV for persisted counts |
 
 ## Phase 2 — Distribution
 
