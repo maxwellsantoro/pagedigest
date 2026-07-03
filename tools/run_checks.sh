@@ -9,38 +9,42 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "[1/7] checking python formatting"
+echo "[1/8] checking python formatting"
 uv run --project "${PYTHON_CONSUMER_DIR}" --extra dev --locked ruff format --check \
   "${PYTHON_CONSUMER_DIR}/pagedigest" \
   "${PYTHON_CONSUMER_DIR}/tests" \
   "${PYTHON_CONSUMER_DIR}/examples" \
   "${ROOT_DIR}/tools"
 
-echo "[2/7] linting python"
+echo "[2/8] linting python"
 uv run --project "${PYTHON_CONSUMER_DIR}" --extra dev --locked ruff check \
   "${PYTHON_CONSUMER_DIR}/pagedigest" \
   "${PYTHON_CONSUMER_DIR}/tests" \
   "${PYTHON_CONSUMER_DIR}/examples" \
   "${ROOT_DIR}/tools"
 
-echo "[3/7] validating test vectors"
+echo "[3/8] validating test vectors"
 uv run --project "${PYTHON_CONSUMER_DIR}" --extra dev --locked python "${ROOT_DIR}/tools/validate_vectors.py"
 
-echo "[4/7] running python consumer tests"
+echo "[4/8] running python consumer tests"
 cd "${PYTHON_CONSUMER_DIR}"
 uv run --locked python -m unittest discover -s tests -v
 
-echo "[5/7] checking rust formatting"
+echo "[5/8] checking rust formatting"
 cd "${ROOT_DIR}/implementations/rust-generator"
 cargo fmt --check
 
-echo "[6/7] linting and testing rust generator"
+echo "[6/8] linting and testing rust generator"
 cd "${ROOT_DIR}/implementations/rust-generator"
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
 
-echo "[7/7] running generator integration smoke test"
+echo "[7/8] running generator integration smoke test"
 cd "${ROOT_DIR}"
 uv run --project "${PYTHON_CONSUMER_DIR}" --locked python "${ROOT_DIR}/tools/smoke_generator_progression.py"
+
+echo "[8/8] checking dogfood manifest in sync with site/"
+cd "${ROOT_DIR}"
+uv run --project "${PYTHON_CONSUMER_DIR}" --locked python "${ROOT_DIR}/tools/check_dogfood_manifest.py"
 
 echo "all checks passed"

@@ -58,6 +58,10 @@ struct Args {
     /// Coverage metadata to emit.
     #[arg(long, value_enum, default_value_t = CoverageArg::Complete)]
     coverage: CoverageArg,
+
+    /// Origin-relative URL prefix to include (repeatable). Requires --coverage prefixes.
+    #[arg(long, required_if_eq("coverage", "prefixes"))]
+    prefix: Vec<String>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
@@ -69,6 +73,7 @@ enum IndexStyle {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 enum CoverageArg {
     Complete,
+    Prefixes,
     None,
 }
 
@@ -85,12 +90,15 @@ struct Manifest {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct Coverage {
     mode: CoverageMode,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    prefixes: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 enum CoverageMode {
     Complete,
+    Prefixes,
 }
 
 #[derive(Debug, Serialize)]
@@ -122,6 +130,7 @@ fn main() -> Result<()> {
             args.input_dir.display()
         )
     })?;
+    let coverage = coverage_for_arg(&args)?;
 
     let output_path = args
         .output
@@ -136,8 +145,13 @@ fn main() -> Result<()> {
     });
 
     let previous = load_state(&state_path)?;
-    let current_digests = collect_digests(&input_dir, args.index_style, &args.include_ext)?;
-    let coverage = coverage_for_arg(args.coverage);
+    let mut current_digests = collect_digests(&input_dir, args.index_style, &args.include_ext)?;
+
+    if let Some(ref coverage_value) = coverage {
+        if let Some(ref prefixes) = coverage_value.prefixes {
+            current_digests.retain(|url, _| prefixes.iter().any(|p| url.starts_with(p.as_str())));
+        }
+    }
 
     let mut any_change = false;
     let mut entries = BTreeMap::new();
@@ -266,13 +280,41 @@ fn should_include(path: &Path, include_ext: &[String]) -> bool {
     }
 }
 
-fn coverage_for_arg(coverage: CoverageArg) -> Option<Coverage> {
-    match coverage {
+fn coverage_for_arg(args: &Args) -> Result<Option<Coverage>> {
+    if !args.prefix.is_empty() && args.coverage != CoverageArg::Prefixes {
+        bail!("--prefix can only be used with --coverage prefixes");
+    }
+    Ok(match args.coverage {
         CoverageArg::Complete => Some(Coverage {
             mode: CoverageMode::Complete,
+            prefixes: None,
         }),
         CoverageArg::None => None,
+        CoverageArg::Prefixes => {
+            let prefixes = normalize_prefixes(&args.prefix)?;
+            Some(Coverage {
+                mode: CoverageMode::Prefixes,
+                prefixes: Some(prefixes),
+            })
+        }
+    })
+}
+
+fn normalize_prefixes(raw: &[String]) -> Result<Vec<String>> {
+    if raw.is_empty() {
+        bail!("prefixes coverage requires at least one --prefix beginning with '/'");
     }
+    let mut prefixes: Vec<String> = Vec::new();
+    for value in raw {
+        if !value.starts_with('/') {
+            bail!("prefix must begin with '/': {value}");
+        }
+        if !prefixes.contains(value) {
+            prefixes.push(value.clone());
+        }
+    }
+    prefixes.sort();
+    Ok(prefixes)
 }
 
 fn encode_path_segment(segment: &str) -> String {
@@ -417,6 +459,20 @@ mod tests {
             rel_to_url_key(Path::new("hello world.html"), IndexStyle::File).expect("url key"),
             "/hello%20world.html"
         );
+    }
+
+    #[test]
+    fn normalize_prefixes_validates_sorts_and_dedupes() {
+        assert!(normalize_prefixes(&[]).is_err());
+        assert!(normalize_prefixes(&["blog".to_string()]).is_err());
+
+        let sorted = normalize_prefixes(&[
+            "/docs/".to_string(),
+            "/blog/".to_string(),
+            "/blog/".to_string(),
+        ])
+        .expect("normalize");
+        assert_eq!(sorted, vec!["/blog/", "/docs/"]);
     }
 
     #[cfg(unix)]

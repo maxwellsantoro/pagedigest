@@ -11,10 +11,11 @@ import hashlib
 import importlib.util
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,7 +40,24 @@ def read_json(path: Path) -> dict[str, Any]:
 
 def load_schema_validator() -> Draft202012Validator:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
-    return Draft202012Validator(schema)
+
+    # The schema declares `format: date-time` on `generated` and `modified`.
+    # jsonschema does not enforce format keywords unless a FormatChecker is
+    # supplied AND a backend library for the format is importable. To keep this
+    # tool dependency-free, register a stdlib-only date-time check so the
+    # keyword is actually meaningful rather than silently vacuous. This is still
+    # looser than the consumer's UTC-only validator (the normative boundary),
+    # which is exercised by the unittest suite.
+    format_checker = FormatChecker()
+
+    @format_checker.checks("date-time", raises=ValueError)
+    def _is_date_time(value: object) -> bool:
+        if not isinstance(value, str):
+            return True
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return True
+
+    return Draft202012Validator(schema, format_checker=format_checker)
 
 
 def assert_schema_valid(validator: Draft202012Validator, path: Path) -> None:
@@ -189,6 +207,23 @@ def assert_header_formats(path: Path) -> None:
 
 def main() -> int:
     validator = load_schema_validator()
+
+    # Guard against a silent no-op: if the date-time format check stops
+    # enforcing, schema validation would accept invalid timestamps.
+    if not any(
+        True
+        for _ in validator.iter_errors(
+            {
+                "version": 1,
+                "generated": "2026-13-45T00:00:00Z",
+                "site_rev": 1,
+                "entries": {},
+            }
+        )
+    ):
+        raise ValueError(
+            "date-time format checker is not enforcing; schema would accept invalid timestamps"
+        )
 
     index = read_json(VECTORS / "index.json")
     case_ids = {c["id"] for c in index["cases"]}

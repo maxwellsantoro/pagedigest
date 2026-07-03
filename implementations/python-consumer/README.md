@@ -14,8 +14,9 @@ Requires Python ≥3.9. Runtime dependency: `requests`.
 
 - `fetch` — fetch and validate manifest; graceful fallback on errors
 - `diff` — compare manifest to cached `site_rev` / per-URL `rev`
-- `audit` — identity-encoding digest check
+- `audit` — identity-encoding digest check (streams the body with a size cap)
 - `check_site` — `fetch` + `diff` + optional sampled audit plan
+- `identity_digest` — stream-hash a `stream=True` response body, capped at `max_bytes`, for custom audit pipelines
 - `validate_manifest`, `resolve_url_key`, `manifest_url` — validation and URL helpers
 - `format_state_header`, `parse_state_header` — strict optional `PageDigest-State` helpers
 

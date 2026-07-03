@@ -25,14 +25,15 @@ that reintroduces an unverifiable digest is corrected in the same cycle.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
-from pagedigest import resolve_url_key, validate_manifest
+from pagedigest import identity_digest, resolve_url_key, validate_manifest
+
+MAX_AUDIT_BYTES = 10 * 1024 * 1024
 
 
 @dataclass
@@ -44,7 +45,7 @@ class Reconciliation:
 
 
 def fetch_identity_digest(
-    base_url: str, path: str, timeout: int
+    base_url: str, path: str, timeout: int, max_bytes: int = MAX_AUDIT_BYTES
 ) -> tuple[str | None, str]:
     try:
         url = resolve_url_key(base_url, path)
@@ -56,27 +57,36 @@ def fetch_identity_digest(
             headers={"Accept-Encoding": "identity"},
             allow_redirects=False,
             timeout=timeout,
+            stream=True,
         )
     except requests.RequestException as exc:
         return None, f"network-error: {exc}"
-    if 300 <= r.status_code < 400:
-        return None, f"redirect:{r.status_code}"
-    if r.status_code < 200 or r.status_code >= 300:
-        return None, f"non-success:{r.status_code}"
-    return "sha256:" + hashlib.sha256(r.content).hexdigest(), "ok"
+    try:
+        if 300 <= r.status_code < 400:
+            return None, f"redirect:{r.status_code}"
+        if r.status_code < 200 or r.status_code >= 300:
+            return None, f"non-success:{r.status_code}"
+        digest, error = identity_digest(r, max_bytes)
+        return digest, error if error else "ok"
+    finally:
+        r.close()
 
 
 def reconcile_entry(
-    base_url: str, path: str, expected_digest: str, timeout: int
+    base_url: str,
+    path: str,
+    expected_digest: str,
+    timeout: int,
+    max_bytes: int = MAX_AUDIT_BYTES,
 ) -> Reconciliation:
-    first, first_detail = fetch_identity_digest(base_url, path, timeout)
+    first, first_detail = fetch_identity_digest(base_url, path, timeout, max_bytes)
     if first is None:
         return Reconciliation(path, "inconclusive", first_detail)
     if first == expected_digest:
         # One matching fetch is sufficient: the digest verifies over the wire.
         return Reconciliation(path, "match", "ok")
 
-    second, second_detail = fetch_identity_digest(base_url, path, timeout)
+    second, second_detail = fetch_identity_digest(base_url, path, timeout, max_bytes)
     if second is None:
         return Reconciliation(path, "inconclusive", second_detail)
     if second == expected_digest:
@@ -112,6 +122,12 @@ def main() -> int:
         ),
     )
     parser.add_argument("--timeout", type=int, default=15, help="HTTP timeout seconds")
+    parser.add_argument(
+        "--max-bytes",
+        type=int,
+        default=MAX_AUDIT_BYTES,
+        help="Abort identity fetches larger than this many bytes",
+    )
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest)
@@ -130,7 +146,11 @@ def main() -> int:
             continue
         digest = entry.get("digest")
         if isinstance(digest, str):
-            results.append(reconcile_entry(args.base_url, path, digest, args.timeout))
+            results.append(
+                reconcile_entry(
+                    args.base_url, path, digest, args.timeout, args.max_bytes
+                )
+            )
 
     changed = False
     for result in results:

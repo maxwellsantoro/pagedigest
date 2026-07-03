@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import importlib.util
 import json
@@ -455,6 +457,35 @@ class CoreTests(unittest.TestCase):
         )
         self.assertEqual(out["result"], "inconclusive")
         self.assertEqual(out["reason"], "redirect")
+
+    def test_audit_inconclusive_on_oversized_content_length(self) -> None:
+        response = StubResponse(
+            status_code=200,
+            content=b"x" * 40,
+            headers={"Content-Length": "64"},
+        )
+        out = audit(
+            "https://example.com",
+            "/audit",
+            "sha256:" + "0" * 64,
+            session=StubSession(response),
+            max_bytes=32,
+        )
+        self.assertEqual(out["result"], "inconclusive")
+        self.assertEqual(out["reason"], "body-too-large")
+
+    def test_audit_inconclusive_on_oversized_streamed_body(self) -> None:
+        response = StubResponse(status_code=200, content=b"x" * 40)
+        out = audit(
+            "https://example.com",
+            "/audit",
+            "sha256:" + "0" * 64,
+            session=StubSession(response),
+            max_bytes=32,
+        )
+        self.assertEqual(out["result"], "inconclusive")
+        self.assertEqual(out["reason"], "body-too-large")
+        self.assertTrue(response.closed)
 
 
 if __name__ == "__main__":

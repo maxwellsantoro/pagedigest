@@ -13,6 +13,7 @@ import requests
 
 MANIFEST_PATH = "/.well-known/pagedigest.json"
 DEFAULT_MAX_MANIFEST_BYTES = 10 * 1024 * 1024
+DEFAULT_MAX_AUDIT_BYTES = 10 * 1024 * 1024
 URL_KEY_PATTERN = re.compile(r"^/([^#]*)?$")
 DIGEST_PATTERN = re.compile(r"^sha256:[a-f0-9]{64}$")
 TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+00:00)$")
@@ -227,6 +228,36 @@ def _read_manifest_body(response: requests.Response, max_bytes: int) -> tuple[by
     return b"".join(chunks), None
 
 
+def identity_digest(
+    response: requests.Response, max_bytes: int = DEFAULT_MAX_AUDIT_BYTES
+) -> tuple[str | None, str | None]:
+    """Stream-hash a response body, capped at ``max_bytes``.
+
+    Returns ``(digest, None)`` where digest is ``sha256:<hex>``, or
+    ``(None, error_code)`` (``body-too-large`` / ``invalid-content-length``)
+    when the body cannot be safely hashed. ``response`` must have been fetched
+    with ``stream=True``; the caller owns closing it.
+    """
+    content_length = response.headers.get("Content-Length")
+    if content_length is not None:
+        try:
+            if int(content_length) > max_bytes:
+                return None, "body-too-large"
+        except ValueError:
+            return None, "invalid-content-length"
+
+    hasher = hashlib.sha256()
+    total = 0
+    for chunk in response.iter_content(chunk_size=65536):
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > max_bytes:
+            return None, "body-too-large"
+        hasher.update(chunk)
+    return "sha256:" + hasher.hexdigest(), None
+
+
 def fetch(
     base_url: str,
     timeout: int = 10,
@@ -374,28 +405,50 @@ def diff(
 
 
 def audit(
-    base_url: str, url_key: str, expected_digest: str, timeout: int = 10, session: requests.Session | None = None
+    base_url: str,
+    url_key: str,
+    expected_digest: str,
+    timeout: int = 10,
+    session: requests.Session | None = None,
+    max_bytes: int = DEFAULT_MAX_AUDIT_BYTES,
 ) -> dict[str, Any]:
-    """Audit a digest claim using identity-encoding fetch semantics."""
+    """Audit a digest claim using identity-encoding fetch semantics.
+
+    The response body is streamed and capped at ``max_bytes`` so a publisher
+    cannot exhaust auditor memory with an oversized page.
+    """
     s = session or requests.Session()
     try:
         url = resolve_url_key(base_url, url_key)
     except ValueError as exc:
         return {"result": "inconclusive", "reason": str(exc)}
     try:
-        r = s.get(url, headers={"Accept-Encoding": "identity"}, timeout=timeout, allow_redirects=False)
+        r = s.get(
+            url,
+            headers={"Accept-Encoding": "identity"},
+            timeout=timeout,
+            allow_redirects=False,
+            stream=True,
+        )
     except requests.RequestException as exc:
         return {"result": "inconclusive", "reason": "network-error", "error": str(exc)}
 
-    if 300 <= r.status_code < 400:
-        return {"result": "inconclusive", "reason": "redirect", "status_code": r.status_code}
-    if r.status_code < 200 or r.status_code >= 300:
-        return {"result": "inconclusive", "reason": "non-success", "status_code": r.status_code}
+    try:
+        if 300 <= r.status_code < 400:
+            return {"result": "inconclusive", "reason": "redirect", "status_code": r.status_code}
+        if r.status_code < 200 or r.status_code >= 300:
+            return {"result": "inconclusive", "reason": "non-success", "status_code": r.status_code}
 
-    computed = "sha256:" + hashlib.sha256(r.content).hexdigest()
-    if computed == expected_digest:
-        return {"result": "match", "computed": computed}
-    return {"result": "mismatch", "computed": computed, "expected": expected_digest}
+        computed, size_error = identity_digest(r, max_bytes)
+        if size_error is not None:
+            return {"result": "inconclusive", "reason": size_error}
+        if computed == expected_digest:
+            return {"result": "match", "computed": computed}
+        return {"result": "mismatch", "computed": computed, "expected": expected_digest}
+    finally:
+        close = getattr(r, "close", None)
+        if callable(close):
+            close()
 
 
 def _sample_audit_candidates(
@@ -438,7 +491,14 @@ def check_site(
     max_bytes: int = DEFAULT_MAX_MANIFEST_BYTES,
     rng: random.Random | None = None,
 ) -> dict[str, Any]:
-    """High-level convenience API: fetch + diff + optional sampled audit plan."""
+    """High-level convenience API: fetch + diff + optional sampled audit plan.
+
+    Any anomaly — a ``site_rev`` decrease or even a single per-URL ``rev``
+    decrease — triggers a whole-site fallback. This is deliberately stricter
+    than SPEC §5.2.2, which scopes an isolated per-URL decrease to that URL;
+    callers that need finer-grained handling should call ``fetch`` and ``diff``
+    directly and apply their own scoping policy.
+    """
     result = fetch(
         base_url,
         timeout=timeout,

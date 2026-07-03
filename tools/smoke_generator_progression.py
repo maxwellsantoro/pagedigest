@@ -114,6 +114,39 @@ def main() -> int:
         m6 = load_manifest(manifest_path)
         assert_equal(m6["site_rev"], 4, "site_rev after no-change coverage-none run")
 
+        # Seventh run: prefixes coverage filters to a single subtree and bumps
+        # site_rev because coverage semantics changed again.
+        (site_dir / "blog").mkdir(parents=True, exist_ok=True)
+        (site_dir / "blog" / "index.html").write_text("hello blog\n", encoding="utf-8")
+        run_generator(
+            site_dir,
+            manifest_path,
+            state_path,
+            extra_args=["--coverage", "prefixes", "--prefix", "/blog/"],
+        )
+        m7 = load_manifest(manifest_path)
+        assert_equal(m7["site_rev"], 5, "site_rev after prefixes coverage run")
+        assert_equal(
+            m7["coverage"],
+            {"mode": "prefixes", "prefixes": ["/blog/"]},
+            "coverage after prefixes coverage run",
+        )
+        assert_equal(
+            list(m7["entries"].keys()), ["/blog/"], "prefixes coverage filters entries"
+        )
+        assert_equal(m7["entries"]["/blog/"]["rev"], 1, "rev for new blog entry")
+
+        # Eighth run: same prefixes coverage, no change.
+        run_generator(
+            site_dir,
+            manifest_path,
+            state_path,
+            extra_args=["--coverage", "prefixes", "--prefix", "/blog/"],
+        )
+        m8 = load_manifest(manifest_path)
+        assert_equal(m8["site_rev"], 5, "site_rev after no-change prefixes run")
+        assert_equal(list(m8["entries"].keys()), ["/blog/"], "entries stable")
+
     print("generator smoke progression passed")
     return 0
 

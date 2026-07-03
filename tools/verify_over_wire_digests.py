@@ -9,14 +9,16 @@ those URLs with Accept-Encoding: identity and compares SHA-256 values.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import random
 from dataclasses import dataclass
 from typing import Any
 
 import requests
+from pagedigest import identity_digest
 from pagedigest import manifest_url as default_manifest_url
 from pagedigest import resolve_url_key, validate_manifest
+
+MAX_AUDIT_BYTES = 10 * 1024 * 1024
 
 
 @dataclass
@@ -46,7 +48,11 @@ def fetch_manifest(url: str, timeout: int) -> dict[str, Any]:
 
 
 def audit_entry(
-    base_url: str, path: str, expected_digest: str, timeout: int
+    base_url: str,
+    path: str,
+    expected_digest: str,
+    timeout: int,
+    max_bytes: int = MAX_AUDIT_BYTES,
 ) -> AuditResult:
     try:
         url = resolve_url_key(base_url, path)
@@ -58,21 +64,27 @@ def audit_entry(
             headers={"Accept-Encoding": "identity"},
             allow_redirects=False,
             timeout=timeout,
+            stream=True,
         )
     except requests.RequestException as exc:
         return AuditResult(url, "inconclusive", f"network-error: {exc}")
 
-    if 300 <= r.status_code < 400:
-        return AuditResult(url, "inconclusive", f"redirect:{r.status_code}")
-    if r.status_code < 200 or r.status_code >= 300:
-        return AuditResult(url, "inconclusive", f"non-success:{r.status_code}")
+    try:
+        if 300 <= r.status_code < 400:
+            return AuditResult(url, "inconclusive", f"redirect:{r.status_code}")
+        if r.status_code < 200 or r.status_code >= 300:
+            return AuditResult(url, "inconclusive", f"non-success:{r.status_code}")
 
-    computed = "sha256:" + hashlib.sha256(r.content).hexdigest()
-    if computed == expected_digest:
-        return AuditResult(url, "match", "ok")
-    return AuditResult(
-        url, "mismatch", f"expected={expected_digest} computed={computed}"
-    )
+        computed, size_error = identity_digest(r, max_bytes)
+        if size_error is not None:
+            return AuditResult(url, "inconclusive", size_error)
+        if computed == expected_digest:
+            return AuditResult(url, "match", "ok")
+        return AuditResult(
+            url, "mismatch", f"expected={expected_digest} computed={computed}"
+        )
+    finally:
+        r.close()
 
 
 def main() -> int:
@@ -91,6 +103,12 @@ def main() -> int:
         "--seed", type=int, default=42, help="Random seed for deterministic sampling"
     )
     parser.add_argument("--timeout", type=int, default=15, help="HTTP timeout seconds")
+    parser.add_argument(
+        "--max-bytes",
+        type=int,
+        default=MAX_AUDIT_BYTES,
+        help="Abort identity fetches larger than this many bytes",
+    )
     args = parser.parse_args()
 
     manifest_url = build_manifest_url(args.base_url, args.manifest_url)
@@ -113,7 +131,9 @@ def main() -> int:
     sample = random.sample(digest_entries, sample_size)
 
     results = [
-        audit_entry(args.base_url, path, digest, timeout=args.timeout)
+        audit_entry(
+            args.base_url, path, digest, timeout=args.timeout, max_bytes=args.max_bytes
+        )
         for path, digest in sample
     ]
 
