@@ -88,6 +88,13 @@ extract it, then run:
 The generator writes `site-dist/.well-known/pagedigest.json` and persists
 revision state between builds.
 
+### Publisher — Cargo
+
+```bash
+cargo install pagedigest
+pagedigest-generator ./site-dist
+```
+
 ### Publisher — run from source
 
 ```bash
@@ -133,7 +140,6 @@ Configuration and options: [packages/astro](./packages/astro/).
 ```bash
 # Generator — future targets
 npx pagedigest ./dist          # npm wrapper over release binary
-cargo install pagedigest       # crates.io
 ```
 
 ## Quality gates

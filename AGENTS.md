@@ -58,7 +58,7 @@ When changing protocol behavior: update **SPEC** if normative, add/adjust **test
 
 | Shipped in repo | Planned ([ROADMAP.md](./ROADMAP.md)) |
 |-----------------|--------------------------------------|
-| Rust generator (`cargo run …` and release binaries) | `cargo install`, `npx` |
+| Rust generator (`cargo install pagedigest` and release binaries) | `npx` |
 | Python consumer (`pip install pagedigest`) | Additional SSG plugins |
 | Astro integration (`npm install @pagedigest/astro`) | |
 | Conformance vectors + CI | IANA well-known + link-relation registration |
