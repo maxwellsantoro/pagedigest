@@ -1,12 +1,12 @@
 {
-  "site_rev": 4,
+  "site_rev": 5,
   "coverage": {
     "mode": "complete"
   },
   "entries": {
     "/": {
-      "rev": 4,
-      "digest": "5562e50f4a94ca7c16178612db363578bbc1825012385d2d2ebe56713242db10"
+      "rev": 5,
+      "digest": "4f24987ed2b01c3dd2907f6c3f9786e7d6586ccc966dc02fd3acff32bc55ce07"
     },
     "/404.html": {
       "rev": 1,

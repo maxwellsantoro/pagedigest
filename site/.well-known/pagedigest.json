@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "generated": "2026-07-03T01:54:33Z",
-  "site_rev": 4,
+  "generated": "2026-07-04T00:27:38Z",
+  "site_rev": 5,
   "coverage": {
     "mode": "complete"
   },
   "entries": {
     "/": {
-      "rev": 4,
-      "digest": "sha256:5562e50f4a94ca7c16178612db363578bbc1825012385d2d2ebe56713242db10"
+      "rev": 5,
+      "digest": "sha256:4f24987ed2b01c3dd2907f6c3f9786e7d6586ccc966dc02fd3acff32bc55ce07"
     },
     "/404.html": {
       "rev": 1,
