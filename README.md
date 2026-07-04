@@ -107,6 +107,8 @@ pip install pagedigest         # PyPI
 npm install @pagedigest/astro
 ```
 
+The Astro integration source lives at [packages/astro](./packages/astro/).
+
 ## Quality gates
 
 ```bash

@@ -36,7 +36,7 @@ Update README install blocks as each ships. Semver for implementations; spec `ve
 
 | Task | Priority |
 |------|----------|
-| Astro plugin (`@pagedigest/astro`) | P0 |
+| Astro plugin (`@pagedigest/astro`) | P0 — source package added; npm publish pending |
 | Producer case study ([dotrepo](./docs/case-studies/dotrepo.md), [template](./docs/DOGFOOD_TEMPLATE.md)) | done — first measured case study |
 | Hygiene checker utility | done — `tools/check_content_hygiene.py` |
 | Generator: per-entry `modified` fields | P1 |
