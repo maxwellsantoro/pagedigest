@@ -49,7 +49,7 @@ Publisher pipeline: build → generate manifest → deploy → `reconcile_served
 | Task | Priority |
 |------|----------|
 | Consumer integration write-up | done |
-| Reference sample (cache persistence) | P1 |
+| Reference sample (cache persistence) | done — atomic state and bounded body cache with failure tests |
 | Live digest verification CLI (`pagedigest verify-live`) | done |
 
 ## Phase 5 — Standards registration
@@ -71,4 +71,4 @@ discovery, and additional hash algorithms remain reserved; see [SPEC.md](./SPEC.
 
 ## Contribute
 
-Open an issue referencing a phase. Highest leverage now: **adopter feedback**, **additional producer case studies**, and the **persistent-cache consumer sample**.
+Open an issue referencing a phase. Highest leverage now: **adopter feedback**, **additional producer case studies**, and **per-entry modified timestamps**.

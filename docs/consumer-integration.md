@@ -43,6 +43,9 @@ else:
 
 See the persistent cache example at
 [`implementations/python-consumer/examples/cache_persistence.py`](../implementations/python-consumer/examples/cache_persistence.py).
+It is a runnable reference rather than pseudocode: it caches page bodies,
+atomically replaces state, applies removals only under complete coverage, and
+does not advance revisions when any required page fetch fails.
 
 ## State to persist
 
@@ -54,6 +57,7 @@ Persist only enough to make the next comparison deterministic:
 | per-URL `rev` map | Detect new, changed, unchanged, and removed entries. |
 | `ETag` | Conditional manifest requests when the publisher supports them. |
 | `Last-Modified` | Conditional manifest requests when `ETag` is unavailable. |
+| URL-to-body map | Locate cached bodies without treating URL keys as filesystem paths. |
 
 For `coverage.mode: "complete"`, URLs missing from the next manifest are
 removals. For partial or prefix coverage, absence outside the declared coverage

@@ -69,5 +69,8 @@ uv run python examples/cache_persistence.py https://example.com ./pagedigest-cac
 ```
 
 The example stores `site_rev`, per-URL `rev`, `ETag`, and `Last-Modified`
-between runs. It prints page fetch decisions so crawler/indexer integrations can
-replace the `print` calls with their own fetch pipeline.
+between runs and caches fetched page bodies beside the state file. Bodies and
+state are replaced atomically, page responses are size-capped, redirects are
+rejected, and manifest state advances only after every required page fetch
+succeeds. Use `--pages` to choose a body-cache directory and
+`--max-page-bytes` to change the default 10 MiB response cap.

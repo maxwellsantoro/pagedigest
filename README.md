@@ -156,6 +156,6 @@ Publisher tooling also includes `tools/check_content_hygiene.py` (pre-generate c
 
 ## Contributing
 
-See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: more producer case studies ([template](./docs/DOGFOOD_TEMPLATE.md)), adopter feedback, and the persistent-cache consumer sample.
+See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: more producer case studies ([template](./docs/DOGFOOD_TEMPLATE.md)), adopter feedback, and per-entry modified timestamps.
 
 MIT licensed.
