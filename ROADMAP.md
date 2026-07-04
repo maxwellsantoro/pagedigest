@@ -25,7 +25,7 @@ dotrepo dogfood, agent consumption, and only then broad distribution.
 
 | Task | Priority / status |
 |------|-------------------|
-| GitHub Releases (`pagedigest-generator` binaries) | P0 — draft release workflow ready |
+| GitHub Releases (`pagedigest-generator` binaries) | done — `v0.1.0` published for Linux, macOS, and Windows |
 | PyPI (`pagedigest` consumer) | P0 — package builds; Trusted Publishing workflow ready |
 | `cargo install` | P1 |
 | npm wrapper (`npx pagedigest`) | P2 |
@@ -71,4 +71,4 @@ discovery, and additional hash algorithms remain reserved; see [SPEC.md](./SPEC.
 
 ## Contribute
 
-Open an issue referencing a phase. Highest leverage now: **GitHub Releases + PyPI**, **adopter feedback**, and **additional producer case studies**.
+Open an issue referencing a phase. Highest leverage now: **PyPI**, **adopter feedback**, and **additional producer case studies**.

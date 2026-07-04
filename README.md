@@ -66,15 +66,28 @@ and [deployment recipes](./docs/cooperative-automation.md).
 **v1 release candidate** — wire format stable at `/.well-known/pagedigest.json`. Discovery uses `Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"` until IANA registration completes. Version 1 reserves `PageDigest-State` as optional client behavior; full intermediary semantics remain a planned v1.1 extension.
 
 Reference implementations ship in this repo, and the Astro integration is
-available from npm. Other registry and binary distribution targets remain
-planned — see [ROADMAP.md](./ROADMAP.md). RC adopters should not expect breaking
+available from npm. Generator binaries ship through GitHub Releases; other
+registry and install targets remain planned — see [ROADMAP.md](./ROADMAP.md). RC adopters should not expect breaking
 field or semantics changes before v1.0.
 
 Live dogfood: [pagedigest.org](https://pagedigest.org). Source: [github.com/maxwellsantoro/pagedigest](https://github.com/maxwellsantoro/pagedigest). Sibling project: [dotrepo](https://dotrepo.org) ([ecosystem notes](./docs/ecosystem.md), [measured dogfood case study](./docs/case-studies/dotrepo.md)).
 
-## Use from this repo (today)
+## Install and use
 
-### Publisher — generate a manifest
+### Publisher — release binary
+
+Download the archive for Linux, macOS, or Windows from the
+[pagedigest-generator v0.1.0 release](https://github.com/maxwellsantoro/pagedigest/releases/tag/generator-v0.1.0),
+extract it, then run:
+
+```bash
+./pagedigest-generator ./site-dist
+```
+
+The generator writes `site-dist/.well-known/pagedigest.json` and persists
+revision state between builds.
+
+### Publisher — run from source
 
 ```bash
 cargo run --manifest-path implementations/rust-generator/Cargo.toml -- ./site-dist
@@ -84,7 +97,7 @@ Writes `site-dist/.well-known/pagedigest.json` and persists revision state. See 
 
 Publishers using digests should follow the post-deploy pipeline in [CONTENT_HYGIENE.md](./CONTENT_HYGIENE.md).
 
-### Consumer — fetch, diff, audit
+### Consumer — run from source
 
 ```bash
 cd implementations/python-consumer
@@ -128,6 +141,6 @@ Publisher tooling also includes `tools/check_content_hygiene.py` (pre-generate c
 
 ## Contributing
 
-See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: distribution (GitHub Releases + PyPI), more producer case studies ([template](./docs/DOGFOOD_TEMPLATE.md)), and adopter feedback.
+See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: PyPI distribution, more producer case studies ([template](./docs/DOGFOOD_TEMPLATE.md)), and adopter feedback.
 
 MIT licensed.
