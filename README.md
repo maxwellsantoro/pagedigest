@@ -67,8 +67,8 @@ and [deployment recipes](./docs/cooperative-automation.md).
 
 Reference implementations ship in this repo, and the Astro integration is
 available from npm. Generator binaries ship through GitHub Releases, and the
-consumer ships on PyPI; other install targets remain planned — see
-[ROADMAP.md](./ROADMAP.md). RC adopters should not expect breaking field or
+generator is installable through Cargo or `npx`; the consumer ships on PyPI.
+See [ROADMAP.md](./ROADMAP.md). RC adopters should not expect breaking field or
 semantics changes before v1.0.
 
 Live dogfood: [pagedigest.org](https://pagedigest.org). Source: [github.com/maxwellsantoro/pagedigest](https://github.com/maxwellsantoro/pagedigest). Sibling project: [dotrepo](https://dotrepo.org) ([ecosystem notes](./docs/ecosystem.md), [measured dogfood case study](./docs/case-studies/dotrepo.md)).
@@ -87,6 +87,15 @@ extract it, then run:
 
 The generator writes `site-dist/.well-known/pagedigest.json` and persists
 revision state between builds.
+
+### Publisher — npm
+
+```bash
+npx pagedigest ./site-dist
+```
+
+The launcher verifies the released generator archive against a pinned SHA-256
+digest before caching and executing it.
 
 ### Publisher — Cargo
 
@@ -135,13 +144,6 @@ npm install @pagedigest/astro
 
 Configuration and options: [packages/astro](./packages/astro/).
 
-### Planned distribution
-
-```bash
-# Generator — future targets
-npx pagedigest ./dist          # npm wrapper over release binary
-```
-
 ## Quality gates
 
 ```bash
@@ -154,6 +156,6 @@ Publisher tooling also includes `tools/check_content_hygiene.py` (pre-generate c
 
 ## Contributing
 
-See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: more producer case studies ([template](./docs/DOGFOOD_TEMPLATE.md)), adopter feedback, and additional install paths.
+See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: more producer case studies ([template](./docs/DOGFOOD_TEMPLATE.md)), adopter feedback, and the persistent-cache consumer sample.
 
 MIT licensed.

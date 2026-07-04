@@ -28,7 +28,7 @@ dotrepo dogfood, agent consumption, and only then broad distribution.
 | GitHub Releases (`pagedigest-generator` binaries) | done — `v0.1.0` published for Linux, macOS, and Windows |
 | PyPI (`pagedigest` consumer) | done — `0.1.0` published with Trusted Publishing |
 | `cargo install` | done — `pagedigest 0.1.0` published to crates.io |
-| npm wrapper (`npx pagedigest`) | P2 |
+| npm wrapper (`npx pagedigest`) | done — `pagedigest 0.1.0` published with verified binary downloads |
 
 Update README install blocks as each ships. Semver for implementations; spec `version` stays `1`.
 
@@ -71,4 +71,4 @@ discovery, and additional hash algorithms remain reserved; see [SPEC.md](./SPEC.
 
 ## Contribute
 
-Open an issue referencing a phase. Highest leverage now: **adopter feedback**, **additional producer case studies**, and **more install paths**.
+Open an issue referencing a phase. Highest leverage now: **adopter feedback**, **additional producer case studies**, and the **persistent-cache consumer sample**.

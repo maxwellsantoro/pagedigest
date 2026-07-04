@@ -58,9 +58,9 @@ When changing protocol behavior: update **SPEC** if normative, add/adjust **test
 
 | Shipped in repo | Planned ([ROADMAP.md](./ROADMAP.md)) |
 |-----------------|--------------------------------------|
-| Rust generator (`cargo install pagedigest` and release binaries) | `npx` |
-| Python consumer (`pip install pagedigest`) | Additional SSG plugins |
-| Astro integration (`npm install @pagedigest/astro`) | |
+| Rust generator (`cargo install pagedigest`, `npx pagedigest`, and release binaries) | |
+| Python consumer (`pip install pagedigest`) | |
+| Astro integration (`npm install @pagedigest/astro`) | Additional SSG plugins |
 | Conformance vectors + CI | IANA well-known + link-relation registration |
 
 Do not document planned install paths as available without updating [README.md](./README.md) and [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
@@ -70,7 +70,7 @@ Do not document planned install paths as available without updating [README.md](
 - **Stay focused.** Match existing style; no drive-by refactors.
 - **Keep docs DRY.** README = front door; SPEC = normative; hygiene/ops = CONTENT_HYGIENE; gates = RELEASE_CHECKLIST; phases = ROADMAP. Link instead of copy.
 - **Avoid new top-level markdown** unless necessary; prefer `docs/` for supplementary material.
-- **Binary name today:** `pagedigest-generator` (not `pagedigest` until distribution ships).
+- **Generator binary:** `pagedigest-generator`; the npm launcher command is `pagedigest`.
 
 ## Task → where to work
 
