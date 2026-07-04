@@ -137,6 +137,14 @@ print(check_site('https://example.com', cached_site_rev=1, cached_revs={'/': 1})
 
 API: `fetch`, `diff`, `audit`, `check_site`. See [implementations/python-consumer/README.md](./implementations/python-consumer/README.md).
 
+### Consumer — Scrapy middleware prototype
+
+An experimental Scrapy downloader middleware lives in
+[integrations/scrapy](./integrations/scrapy/). It consumes a PageDigest manifest
+before page fetches, skips URLs whose `rev` is unchanged from durable crawl
+state, sends `PageDigest-State`, and samples digest audits so a real crawler can
+measure request reduction without changing the protocol.
+
 ### Astro integration
 
 ```bash

@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pagedigest-scrapy"
+version = "0.1.0"
+description = "Scrapy downloader middleware that consumes pagedigest v1 manifests to skip unchanged fetches"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["Scrapy>=2.11", "requests>=2.31"]
+
+[tool.setuptools.packages.find]
+include = ["pagedigest_scrapy*"]

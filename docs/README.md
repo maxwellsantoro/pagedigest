@@ -19,4 +19,6 @@ Agents: [AGENTS.md](../AGENTS.md) (symlinked as `CLAUDE.md`).
 
 Implementation guides: [rust-generator](../implementations/rust-generator/README.md), [python-consumer](../implementations/python-consumer/README.md).
 
+Experimental integrations: [Scrapy consumer middleware](../integrations/scrapy/).
+
 Conformance fixtures: [test-vectors/](../test-vectors/).
