@@ -1,11 +1,18 @@
 [package]
-name = "pagedigest-generator"
+name = "pagedigest"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "Minimal pagedigest manifest generator"
 homepage = "https://pagedigest.org"
 repository = "https://github.com/maxwellsantoro/pagedigest"
+readme = "README.md"
+keywords = ["crawler", "manifest", "static-site", "web"]
+categories = ["command-line-utilities", "web-programming"]
+
+[[bin]]
+name = "pagedigest-generator"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0"

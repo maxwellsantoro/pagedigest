@@ -1,6 +1,6 @@
 # Rust Generator (Minimal Reference)
 
-Binary name: `pagedigest-generator` (`pagedigest` reserved for packaged distribution).
+Crate name: `pagedigest`. Installed binary: `pagedigest-generator`.
 
 ## Behavior
 
@@ -45,6 +45,13 @@ Durable protocol state — keep private, outside ephemeral CI. See [site-state/R
 ```bash
 cargo run -- ./site-dist
 cargo run -- ./site-dist --output ./site-dist/.well-known/pagedigest.json --state ./state.json --with-digest
+```
+
+Or install the released crate:
+
+```bash
+cargo install pagedigest
+pagedigest-generator ./site-dist
 ```
 
 Flags: `--index-style`, `--include-ext`, `--output`, `--state`, `--with-digest`, `--coverage complete|prefixes|none`, `--prefix` (repeatable; requires `--coverage prefixes`).
