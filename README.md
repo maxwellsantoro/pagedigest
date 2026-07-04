@@ -65,7 +65,10 @@ and [deployment recipes](./docs/cooperative-automation.md).
 
 **v1 release candidate** — wire format stable at `/.well-known/pagedigest.json`. Discovery uses `Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"` until IANA registration completes. Version 1 reserves `PageDigest-State` as optional client behavior; full intermediary semantics remain a planned v1.1 extension.
 
-Reference implementations ship in this repo. Package registries and SSG plugins are **planned** — see [ROADMAP.md](./ROADMAP.md). RC adopters should not expect breaking field or semantics changes before v1.0.
+Reference implementations ship in this repo, and the Astro integration is
+available from npm. Other registry and binary distribution targets remain
+planned — see [ROADMAP.md](./ROADMAP.md). RC adopters should not expect breaking
+field or semantics changes before v1.0.
 
 Live dogfood: [pagedigest.org](https://pagedigest.org). Source: [github.com/maxwellsantoro/pagedigest](https://github.com/maxwellsantoro/pagedigest). Sibling project: [dotrepo](https://dotrepo.org) ([ecosystem notes](./docs/ecosystem.md), [measured dogfood case study](./docs/case-studies/dotrepo.md)).
 
@@ -94,7 +97,15 @@ print(check_site('https://example.com', cached_site_rev=1, cached_revs={'/': 1})
 
 API: `fetch`, `diff`, `audit`, `check_site`. See [implementations/python-consumer/README.md](./implementations/python-consumer/README.md).
 
-### Planned distribution (not yet shipped)
+### Astro integration
+
+```bash
+npm install @pagedigest/astro
+```
+
+Configuration and options: [packages/astro](./packages/astro/).
+
+### Planned distribution
 
 ```bash
 # Generator — future targets
@@ -103,11 +114,7 @@ cargo install pagedigest       # crates.io
 # Consumer — future target
 pip install pagedigest         # PyPI
 
-# SSG — future target
-npm install @pagedigest/astro
 ```
-
-The Astro integration source lives at [packages/astro](./packages/astro/).
 
 ## Quality gates
 
@@ -121,6 +128,6 @@ Publisher tooling also includes `tools/check_content_hygiene.py` (pre-generate c
 
 ## Contributing
 
-See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: distribution (GitHub Releases + PyPI), Astro plugin, more producer case studies ([template](./docs/DOGFOOD_TEMPLATE.md)), consumer integration write-up.
+See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: distribution (GitHub Releases + PyPI), more producer case studies ([template](./docs/DOGFOOD_TEMPLATE.md)), and adopter feedback.
 
 MIT licensed.

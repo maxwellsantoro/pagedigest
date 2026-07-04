@@ -36,7 +36,7 @@ Update README install blocks as each ships. Semver for implementations; spec `ve
 
 | Task | Priority |
 |------|----------|
-| Astro plugin (`@pagedigest/astro`) | P0 — source package added; npm publish pending |
+| Astro plugin (`@pagedigest/astro`) | done — `0.1.0` published to npm; OIDC releases configured |
 | Producer case study ([dotrepo](./docs/case-studies/dotrepo.md), [template](./docs/DOGFOOD_TEMPLATE.md)) | done — first measured case study |
 | Hygiene checker utility | done — `tools/check_content_hygiene.py` |
 | Generator: per-entry `modified` fields | P1 |
@@ -71,4 +71,4 @@ discovery, and additional hash algorithms remain reserved; see [SPEC.md](./SPEC.
 
 ## Contribute
 
-Open an issue referencing a phase. Highest leverage now: **GitHub Releases + PyPI**, **Astro plugin**, **producer case study**, **consumer write-up**.
+Open an issue referencing a phase. Highest leverage now: **GitHub Releases + PyPI**, **adopter feedback**, and **additional producer case studies**.

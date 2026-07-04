@@ -59,7 +59,8 @@ When changing protocol behavior: update **SPEC** if normative, add/adjust **test
 | Shipped in repo | Planned ([ROADMAP.md](./ROADMAP.md)) |
 |-----------------|--------------------------------------|
 | Rust generator (`cargo run …`) | PyPI, GitHub Releases, `cargo install`, `npx` |
-| Python consumer (`uv sync` in impl dir) | Astro/SSG plugins |
+| Python consumer (`uv sync` in impl dir) | Additional SSG plugins |
+| Astro integration (`npm install @pagedigest/astro`) | |
 | Conformance vectors + CI | IANA well-known + link-relation registration |
 
 Do not document planned install paths as available without updating [README.md](./README.md) and [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).

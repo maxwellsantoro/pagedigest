@@ -48,7 +48,7 @@ Objective gates for v1 RC and v1.0. Execution order and priorities: [ROADMAP.md]
 - [x] At least one producer integration publicly documented ([dotrepo case study](./docs/case-studies/dotrepo.md)).
 - [x] At least one consumer integration publicly documented.
 - [x] Hygiene checker utility shipped (or explicitly deferred with issue).
-- [ ] At least one SSG plugin shipped (Astro first).
+- [x] At least one SSG plugin shipped ([Astro on npm](https://www.npmjs.com/package/@pagedigest/astro)).
 
 ## Discovery (RC guidance)
 
