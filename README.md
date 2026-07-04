@@ -67,7 +67,7 @@ and [deployment recipes](./docs/cooperative-automation.md).
 
 Reference implementations ship in this repo. Package registries and SSG plugins are **planned** — see [ROADMAP.md](./ROADMAP.md). RC adopters should not expect breaking field or semantics changes before v1.0.
 
-Live dogfood: [pagedigest.org](https://pagedigest.org). Source: [github.com/maxwellsantoro/pagedigest](https://github.com/maxwellsantoro/pagedigest). Sibling project: [dotrepo](https://dotrepo.org) ([ecosystem notes](./docs/ecosystem.md)).
+Live dogfood: [pagedigest.org](https://pagedigest.org). Source: [github.com/maxwellsantoro/pagedigest](https://github.com/maxwellsantoro/pagedigest). Sibling project: [dotrepo](https://dotrepo.org) ([ecosystem notes](./docs/ecosystem.md), [measured dogfood case study](./docs/case-studies/dotrepo.md)).
 
 ## Use from this repo (today)
 
@@ -119,6 +119,6 @@ Publisher tooling also includes `tools/reconcile_served_digests.py` (post-deploy
 
 ## Contributing
 
-See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: distribution (GitHub Releases + PyPI), Astro plugin, producer case study ([template](./docs/DOGFOOD_TEMPLATE.md)), consumer integration write-up.
+See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: distribution (GitHub Releases + PyPI), Astro plugin, more producer case studies ([template](./docs/DOGFOOD_TEMPLATE.md)), consumer integration write-up.
 
 MIT licensed.

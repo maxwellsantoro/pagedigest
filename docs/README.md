@@ -11,6 +11,7 @@ Agents: [AGENTS.md](../AGENTS.md) (symlinked as `CLAUDE.md`).
 | [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md) | Maintainers | Objective RC and 1.0 gates |
 | [ecosystem.md](./ecosystem.md) | Both | Relationship with [dotrepo](https://dotrepo.org) |
 | [DOGFOOD_TEMPLATE.md](./DOGFOOD_TEMPLATE.md) | Publishers | Template for deployment case studies |
+| [case-studies/dotrepo.md](./case-studies/dotrepo.md) | Publishers & consumers | Measured dotrepo.org dogfood deployment |
 | [cooperative-automation.md](./cooperative-automation.md) | Publishers & intermediaries | `PageDigest-State` logging, classification, nginx, and Cloudflare recipes |
 | [registrations/](./registrations/) | Maintainers | IANA registration drafts |
 

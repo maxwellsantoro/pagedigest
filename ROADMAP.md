@@ -23,8 +23,8 @@ dotrepo dogfood, agent consumption, and only then broad distribution.
 
 ## Phase 2 — Distribution
 
-| Task | Priority |
-|------|----------|
+| Task | Priority / status |
+|------|-------------------|
 | GitHub Releases (`pagedigest-generator` binaries) | P0 |
 | PyPI (`pagedigest` consumer) | P0 |
 | `cargo install` | P1 |
@@ -37,7 +37,7 @@ Update README install blocks as each ships. Semver for implementations; spec `ve
 | Task | Priority |
 |------|----------|
 | Astro plugin (`@pagedigest/astro`) | P0 |
-| Producer case study ([template](./docs/DOGFOOD_TEMPLATE.md)) | P0 |
+| Producer case study ([dotrepo](./docs/case-studies/dotrepo.md), [template](./docs/DOGFOOD_TEMPLATE.md)) | done — first measured case study |
 | Hygiene checker utility | P1 |
 | Generator: per-entry `modified` fields | P1 |
 | Hugo / Eleventy / Jekyll plugins | P2 |
