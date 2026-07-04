@@ -38,7 +38,7 @@ Update README install blocks as each ships. Semver for implementations; spec `ve
 |------|----------|
 | Astro plugin (`@pagedigest/astro`) | P0 |
 | Producer case study ([dotrepo](./docs/case-studies/dotrepo.md), [template](./docs/DOGFOOD_TEMPLATE.md)) | done — first measured case study |
-| Hygiene checker utility | P1 |
+| Hygiene checker utility | done — `tools/check_content_hygiene.py` |
 | Generator: per-entry `modified` fields | P1 |
 | Hugo / Eleventy / Jekyll plugins | P2 |
 

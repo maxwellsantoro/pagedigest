@@ -76,6 +76,16 @@ Use it against final rendered output whenever possible. If CDN/edge layers trans
 - [ ] Manifest and pages are deployed in a consistent order.
 - [ ] Initial audit sample confirms low mismatch/inconclusive rates.
 
+Run the local checker against final rendered output before generating the
+manifest:
+
+```bash
+python tools/check_content_hygiene.py ./site-dist
+```
+
+By default, warnings are informational and only hard errors fail the command.
+Use `--fail-on warning` to make likely churn hazards a deployment gate.
+
 ## If you cannot make bytes stable
 
 For URLs with unavoidable non-content churn:

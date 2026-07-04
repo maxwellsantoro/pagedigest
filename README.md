@@ -115,7 +115,7 @@ npm install @pagedigest/astro
 
 Includes conformance vectors (`test-vectors/`), consumer unit tests, generator tests, and revision-progression smoke test. CI mirrors this workflow.
 
-Publisher tooling also includes `tools/reconcile_served_digests.py` (post-deploy digest convergence) and `pagedigest verify-live` (live audit sampling; `tools/verify_over_wire_digests.py` remains as a compatibility wrapper). Consumer guidance lives in [docs/consumer-integration.md](./docs/consumer-integration.md).
+Publisher tooling also includes `tools/check_content_hygiene.py` (pre-generate churn scan), `tools/reconcile_served_digests.py` (post-deploy digest convergence), and `pagedigest verify-live` (live audit sampling; `tools/verify_over_wire_digests.py` remains as a compatibility wrapper). Consumer guidance lives in [docs/consumer-integration.md](./docs/consumer-integration.md).
 
 ## Contributing
 

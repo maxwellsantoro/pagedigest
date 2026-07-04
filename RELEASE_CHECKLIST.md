@@ -47,7 +47,7 @@ Objective gates for v1 RC and v1.0. Execution order and priorities: [ROADMAP.md]
 - [ ] README install sections match shipped packages (PyPI, Releases, etc.).
 - [ ] At least one producer integration publicly documented ([template](./docs/DOGFOOD_TEMPLATE.md)).
 - [x] At least one consumer integration publicly documented.
-- [ ] Hygiene checker utility shipped (or explicitly deferred with issue).
+- [x] Hygiene checker utility shipped (or explicitly deferred with issue).
 - [ ] At least one SSG plugin shipped (Astro first).
 
 ## Discovery (RC guidance)
