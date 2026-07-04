@@ -15,11 +15,14 @@ from pagedigest.core import (
     check_site,
     diff,
     fetch,
+    fetch_manifest_url,
     format_state_header,
+    live_manifest_url,
     manifest_url,
     parse_state_header,
     resolve_url_key,
     validate_manifest,
+    verify_live,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -74,6 +77,17 @@ class StubSession:
         if args:
             self.last_url = args[0]
         return self._response
+
+
+class QueueSession:
+    def __init__(self, responses: list[StubResponse]):
+        self._responses = responses
+        self.requests: list[tuple[str, dict[str, Any]]] = []
+
+    def get(self, *args: Any, **kwargs: Any) -> StubResponse:
+        if args:
+            self.requests.append((args[0], kwargs))
+        return self._responses.pop(0)
 
 
 def valid_manifest(**overrides: Any) -> dict[str, Any]:
@@ -310,17 +324,68 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(session.last_url, "https://example.com/http://127.0.0.1:8000/admin")
         self.assertEqual(out["result"], "mismatch")
 
-    def test_verifier_keeps_embedded_absolute_url_on_origin(self) -> None:
-        verifier = load_tool("verify_over_wire_digests")
-        response = StubResponse(status_code=200, content=b"publisher path")
-        with patch.object(verifier.requests, "get", return_value=response) as request:
-            verifier.audit_entry("https://example.com", "/http://127.0.0.1/admin", "sha256:" + "0" * 64, 10)
-        self.assertEqual(request.call_args.args[0], "https://example.com/http://127.0.0.1/admin")
+    def test_verify_live_keeps_embedded_absolute_url_on_origin(self) -> None:
+        response_body = b"publisher path"
+        manifest = valid_manifest(
+            entries={
+                "/http://127.0.0.1/admin": {
+                    "rev": 1,
+                    "digest": "sha256:" + hashlib.sha256(response_body).hexdigest(),
+                }
+            }
+        )
+        session = QueueSession(
+            [
+                StubResponse(status_code=200, content=json.dumps(manifest).encode("utf-8")),
+                StubResponse(status_code=200, content=response_body),
+            ]
+        )
 
-    def test_verifier_manifest_url_uses_origin_root_for_pathful_base_url(self) -> None:
-        verifier = load_tool("verify_over_wire_digests")
+        out = verify_live("https://example.com", sample_size=1, session=session)
+
+        self.assertEqual(session.requests[1][0], "https://example.com/http://127.0.0.1/admin")
+        self.assertEqual(out["match_count"], 1)
+
+    def test_live_manifest_url_uses_origin_root_for_pathful_base_url(self) -> None:
         self.assertEqual(
-            verifier.build_manifest_url("https://example.com/blog/page", None),
+            live_manifest_url("https://example.com/blog/page"),
+            "https://example.com/.well-known/pagedigest.json",
+        )
+
+    def test_live_manifest_url_accepts_absolute_override(self) -> None:
+        self.assertEqual(
+            live_manifest_url("https://example.com", "https://staging.example.net/pagedigest.json"),
+            "https://staging.example.net/pagedigest.json",
+        )
+
+    def test_fetch_manifest_url_rejects_invalid_override(self) -> None:
+        out = fetch_manifest_url("/local.json", session=StubSession(StubResponse(status_code=200)))
+        self.assertFalse(out.ok)
+        self.assertEqual(out.error, "invalid-manifest-url")
+
+    def test_verify_live_reports_mismatch_count(self) -> None:
+        response = StubResponse(status_code=200, content=b"publisher path")
+        manifest = valid_manifest(entries={"/": {"rev": 1, "digest": "sha256:" + ("0" * 64)}})
+        session = QueueSession([StubResponse(status_code=200, content=json.dumps(manifest).encode("utf-8")), response])
+
+        out = verify_live("https://example.com", sample_size=1, session=session)
+
+        self.assertEqual(out["match_count"], 0)
+        self.assertEqual(out["mismatch_count"], 1)
+        self.assertEqual(out["results"][0]["status"], "mismatch")
+
+    def test_verify_live_reports_manifest_fetch_error(self) -> None:
+        out = verify_live("https://example.com", session=StubSession(StubResponse(status_code=404)))
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["error"], "manifest-unavailable")
+
+    def test_verifier_wrapper_preserves_old_base_url_cli_shape(self) -> None:
+        verifier_path = ROOT / "tools" / "verify_over_wire_digests.py"
+        self.assertTrue(verifier_path.exists())
+
+    def test_manifest_url_uses_origin_root_for_pathful_base_url_on_live_helper(self) -> None:
+        self.assertEqual(
+            live_manifest_url("https://example.com/blog/page", None),
             "https://example.com/.well-known/pagedigest.json",
         )
 

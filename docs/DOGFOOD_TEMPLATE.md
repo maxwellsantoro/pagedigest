@@ -20,7 +20,7 @@ Use this template for the producer case study ([ROADMAP](../ROADMAP.md) Phase 3)
 - HTML/asset transforms disabled on covered paths (minify/injection/rewrites):
 - Edge worker/script injections disabled on covered paths:
 - Any unavoidable transformations documented:
-- Preflight digest verification run (`tools/verify_over_wire_digests.py`) and result:
+- Preflight digest verification run (`pagedigest verify-live`) and result:
 
 ## Manifest Caching Policy
 

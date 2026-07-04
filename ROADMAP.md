@@ -26,7 +26,7 @@ dotrepo dogfood, agent consumption, and only then broad distribution.
 | Task | Priority / status |
 |------|-------------------|
 | GitHub Releases (`pagedigest-generator` binaries) | P0 |
-| PyPI (`pagedigest` consumer) | P0 |
+| PyPI (`pagedigest` consumer) | P0 — CLI entrypoint ready |
 | `cargo install` | P1 |
 | npm wrapper (`npx pagedigest`) | P2 |
 
@@ -50,6 +50,7 @@ Publisher pipeline: build → generate manifest → deploy → `reconcile_served
 |------|----------|
 | Consumer integration write-up | P0 |
 | Reference sample (cache persistence) | P1 |
+| Live digest verification CLI (`pagedigest verify-live`) | done |
 
 ## Phase 5 — Standards registration
 

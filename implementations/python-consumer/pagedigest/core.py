@@ -31,6 +31,14 @@ class FetchResult:
     error: str | None
 
 
+@dataclass
+class LiveAuditItem:
+    url_key: str
+    url: str
+    status: str
+    detail: str
+
+
 def _is_non_negative_int(value: Any) -> bool:
     return type(value) is int and value >= 0
 
@@ -134,6 +142,16 @@ def manifest_url(base_url: str) -> str:
     if base.scheme.lower() not in {"http", "https"} or not base.netloc:
         raise ValueError("invalid-base-url")
     return urlunsplit((base.scheme, base.netloc, MANIFEST_PATH, "", ""))
+
+
+def live_manifest_url(base_url: str, manifest_url_override: str | None = None) -> str:
+    """Return the manifest URL used by live verification."""
+    if manifest_url_override:
+        parsed = urlsplit(manifest_url_override)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("invalid-manifest-url")
+        return manifest_url_override
+    return manifest_url(base_url)
 
 
 def _validate_timestamp(value: Any, field: str) -> str | None:
@@ -332,6 +350,75 @@ def fetch(
             close()
 
 
+def fetch_manifest_url(
+    url: str,
+    timeout: int = 10,
+    session: requests.Session | None = None,
+    max_bytes: int = DEFAULT_MAX_MANIFEST_BYTES,
+) -> FetchResult:
+    """Fetch and validate a concrete manifest URL.
+
+    This is useful for deployment gates that need to verify a non-default or
+    pre-production manifest URL while still applying normal PageDigest
+    validation and response-size limits.
+    """
+    parsed = urlsplit(url)
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+        return FetchResult(False, None, None, None, None, "invalid-manifest-url")
+
+    s = session or requests.Session()
+    try:
+        r = s.get(url, timeout=timeout, stream=True)
+    except requests.RequestException as exc:
+        return FetchResult(False, None, None, None, None, str(exc))
+
+    try:
+        if r.status_code != 200:
+            return FetchResult(
+                False,
+                r.status_code,
+                None,
+                r.headers.get("ETag"),
+                r.headers.get("Last-Modified"),
+                "manifest-unavailable",
+            )
+
+        body, size_error = _read_manifest_body(r, max_bytes)
+        if size_error is not None:
+            return FetchResult(
+                False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), size_error
+            )
+
+        assert body is not None
+        try:
+            manifest = json.loads(body)
+        except ValueError:
+            return FetchResult(
+                False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "invalid-json"
+            )
+
+        if not isinstance(manifest, dict):
+            return FetchResult(
+                False,
+                r.status_code,
+                None,
+                r.headers.get("ETag"),
+                r.headers.get("Last-Modified"),
+                "invalid-manifest-type",
+            )
+
+        if (validation_error := validate_manifest(manifest)) is not None:
+            return FetchResult(
+                False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), validation_error
+            )
+
+        return FetchResult(True, r.status_code, manifest, r.headers.get("ETag"), r.headers.get("Last-Modified"), None)
+    finally:
+        close = getattr(r, "close", None)
+        if callable(close):
+            close()
+
+
 def diff(
     manifest: dict[str, Any],
     cached_site_rev: int | None,
@@ -449,6 +536,127 @@ def audit(
         close = getattr(r, "close", None)
         if callable(close):
             close()
+
+
+def _audit_detail(outcome: dict[str, Any]) -> str:
+    result = outcome.get("result")
+    if result == "match":
+        return "ok"
+    if result == "mismatch":
+        return f"expected={outcome.get('expected')} computed={outcome.get('computed')}"
+    reason = str(outcome.get("reason", "unknown"))
+    if "status_code" in outcome:
+        return f"{reason}:{outcome['status_code']}"
+    if "error" in outcome:
+        return f"{reason}: {outcome['error']}"
+    return reason
+
+
+def verify_live(
+    base_url: str,
+    manifest_url_override: str | None = None,
+    sample_size: int = 25,
+    seed: int = 42,
+    timeout: int = 15,
+    max_bytes: int = DEFAULT_MAX_AUDIT_BYTES,
+    manifest_max_bytes: int = DEFAULT_MAX_MANIFEST_BYTES,
+    session: requests.Session | None = None,
+) -> dict[str, Any]:
+    """Verify sampled manifest digests against live identity-encoded responses.
+
+    The return value is shaped for CLIs and deployment gates. ``mismatch_count``
+    is the hard failure signal; inconclusive entries are reported without
+    failing because redirects, network failures, or intentional large bodies can
+    be deployment-environment dependent.
+    """
+    try:
+        manifest_location = live_manifest_url(base_url, manifest_url_override)
+    except ValueError as exc:
+        return {
+            "ok": False,
+            "manifest_url": manifest_url_override,
+            "error": str(exc),
+            "sampled": 0,
+            "match_count": 0,
+            "mismatch_count": 0,
+            "inconclusive_count": 0,
+            "results": [],
+        }
+
+    s = session or requests.Session()
+    fetched = fetch_manifest_url(manifest_location, timeout=timeout, session=s, max_bytes=manifest_max_bytes)
+    if not fetched.ok:
+        return {
+            "ok": False,
+            "manifest_url": manifest_location,
+            "error": fetched.error,
+            "status_code": fetched.status_code,
+            "sampled": 0,
+            "match_count": 0,
+            "mismatch_count": 0,
+            "inconclusive_count": 0,
+            "results": [],
+        }
+
+    assert fetched.manifest is not None
+    digest_entries: list[tuple[str, str]] = []
+    for url_key, entry in fetched.manifest["entries"].items():
+        if not isinstance(entry, dict):
+            continue
+        digest = entry.get("digest")
+        if isinstance(url_key, str) and isinstance(digest, str):
+            digest_entries.append((url_key, digest))
+
+    if not digest_entries:
+        return {
+            "ok": True,
+            "manifest_url": manifest_location,
+            "sampled": 0,
+            "match_count": 0,
+            "mismatch_count": 0,
+            "inconclusive_count": 0,
+            "results": [],
+        }
+
+    picker = random.Random(seed)
+    sample_count = min(sample_size, len(digest_entries))
+    sample = picker.sample(digest_entries, sample_count)
+    results: list[LiveAuditItem] = []
+    for url_key, expected_digest in sample:
+        try:
+            resolved = resolve_url_key(base_url, url_key)
+        except ValueError:
+            resolved = url_key
+        outcome = audit(base_url, url_key, expected_digest, timeout=timeout, session=s, max_bytes=max_bytes)
+        results.append(
+            LiveAuditItem(
+                url_key=url_key,
+                url=resolved,
+                status=str(outcome.get("result", "inconclusive")),
+                detail=_audit_detail(outcome),
+            )
+        )
+
+    match_count = sum(item.status == "match" for item in results)
+    mismatch_count = sum(item.status == "mismatch" for item in results)
+    inconclusive_count = sum(item.status == "inconclusive" for item in results)
+    return {
+        "ok": True,
+        "manifest_url": manifest_location,
+        "sampled": sample_count,
+        "match_count": match_count,
+        "mismatch_count": mismatch_count,
+        "inconclusive_count": inconclusive_count,
+        "results": [
+            {
+                "url_key": item.url_key,
+                "url": item.url,
+                "status": item.status,
+                "detail": item.detail,
+            }
+            for item in results
+        ],
+    }
 
 
 def _sample_audit_candidates(

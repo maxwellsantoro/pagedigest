@@ -86,10 +86,13 @@ For URLs with unavoidable non-content churn:
 
 ## Dogfood verification helper
 
-Use `tools/verify_over_wire_digests.py` against a live deployment to sample digest-bearing entries and compare manifest hashes to identity-encoded responses over the wire.
+Use `pagedigest verify-live` against a live deployment to sample digest-bearing entries and compare manifest hashes to identity-encoded responses over the wire.
 
 Example:
 
 ```bash
-python tools/verify_over_wire_digests.py https://example.com --sample-size 25
+pagedigest verify-live https://example.com --sample-size 25
 ```
+
+The legacy `tools/verify_over_wire_digests.py` script remains as a compatibility
+wrapper for existing repository automation.

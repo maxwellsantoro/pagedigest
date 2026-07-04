@@ -80,8 +80,8 @@ Expected shape for this snapshot:
 - Local generation audit: the public export records every covered path's content
   digest and computes PageDigest economics from generated static payload bytes.
 - Live over-wire audit: still required after deployment. Run
-  `tools/verify_over_wire_digests.py` against `https://dotrepo.org` to confirm
-  CDN-served identity bytes match the generated digests.
+  `pagedigest verify-live https://dotrepo.org` to confirm CDN-served identity
+  bytes match the generated digests.
 - Known caveat: byte savings above are generated-export economics, not a claim
   that every deployed edge has already converged.
 

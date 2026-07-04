@@ -16,9 +16,19 @@ Requires Python ≥3.9. Runtime dependency: `requests`.
 - `diff` — compare manifest to cached `site_rev` / per-URL `rev`
 - `audit` — identity-encoding digest check (streams the body with a size cap)
 - `check_site` — `fetch` + `diff` + optional sampled audit plan
+- `verify_live` — fetch a manifest and sample live identity-encoded responses for digest verification
 - `identity_digest` — stream-hash a `stream=True` response body, capped at `max_bytes`, for custom audit pipelines
 - `validate_manifest`, `resolve_url_key`, `manifest_url` — validation and URL helpers
 - `format_state_header`, `parse_state_header` — strict optional `PageDigest-State` helpers
+
+## CLI
+
+```bash
+pagedigest verify-live https://example.com --sample-size 25
+```
+
+`verify-live` exits `2` on digest mismatches so it can act as a deployment gate.
+Redirects, network errors, and body-size caps are reported as inconclusive.
 
 ## Example
 
