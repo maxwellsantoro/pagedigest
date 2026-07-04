@@ -22,6 +22,11 @@ RFC 8288 and IANA Link Relation Types Registry.
 
 ## Open Items Before Filing
 
-- Confirm final short relation token availability.
-- Confirm publication status and permanent reference URL.
-- Align final examples across README, SPEC, CONTRACT, and release checklist after registration.
+- Request filed:
+  [protocol-registries/link-relations#73](https://github.com/protocol-registries/link-relations/issues/73).
+- Request text is tracked in
+  [link-relation-registration-request.md](./link-relation-registration-request.md).
+- Expert review may require a more stable or community-backed specification
+  reference before permanent registration.
+- Align final examples across README, SPEC, CONTRACT, and release checklist
+  after registration.

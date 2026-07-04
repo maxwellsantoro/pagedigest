@@ -22,6 +22,10 @@ RFC 8615, Well-Known URI Suffix Registry.
 
 ## Open Items Before Filing
 
-- Confirm permanent specification URL.
-- Confirm final change-controller language.
-- Ensure wording matches final v1.0 publication metadata.
+- Request filed:
+  [protocol-registries/well-known-uris#98](https://github.com/protocol-registries/well-known-uris/issues/98).
+- Request text is tracked in
+  [well-known-uri-registration-request.md](./well-known-uri-registration-request.md).
+- Expert review may require a more stable or community-backed specification
+  reference before permanent registration.
+- Ensure wording matches final v1.0 publication metadata after review.

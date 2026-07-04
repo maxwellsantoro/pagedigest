@@ -41,8 +41,8 @@ Objective gates for v1 RC and v1.0. Execution order and priorities: [ROADMAP.md]
 
 ## 1.0 Gate
 
-- [ ] Well-known URI suffix registration filed and reflected in docs.
-- [ ] Link relation registration filed and reflected in docs.
+- [x] Well-known URI suffix registration filed and reflected in docs.
+- [x] Link relation registration filed and reflected in docs.
 - [ ] If short-form `rel` is registered, update examples across docs.
 - [ ] README install sections match shipped packages (PyPI, Releases, etc.).
 - [ ] At least one producer integration publicly documented ([template](./docs/DOGFOOD_TEMPLATE.md)).

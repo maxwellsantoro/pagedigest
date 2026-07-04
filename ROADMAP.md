@@ -54,7 +54,10 @@ Publisher pipeline: build → generate manifest → deploy → `reconcile_served
 
 ## Phase 5 — Standards registration
 
-Submit drafts in [docs/registrations/](./docs/registrations/). Update docs when short-form `rel` is accepted.
+Requests filed from [docs/registrations/](./docs/registrations/):
+[well-known URI](https://github.com/protocol-registries/well-known-uris/issues/98)
+and [link relation](https://github.com/protocol-registries/link-relations/issues/73).
+Update docs when the short-form `rel` is accepted.
 
 ## Phase 6 — v1.0
 
