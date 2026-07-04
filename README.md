@@ -110,7 +110,7 @@ pagedigest-generator ./site-dist
 cargo run --manifest-path implementations/rust-generator/Cargo.toml -- ./site-dist
 ```
 
-Writes `site-dist/.well-known/pagedigest.json` and persists revision state. See [implementations/rust-generator/README.md](./implementations/rust-generator/README.md) for flags (`--with-digest`, `--index-style`, state path).
+Writes `site-dist/.well-known/pagedigest.json` and persists revision state. See [implementations/rust-generator/README.md](./implementations/rust-generator/README.md) for flags (`--with-digest`, `--with-modified`, `--index-style`, state path).
 
 Publishers using digests should follow the post-deploy pipeline in [CONTENT_HYGIENE.md](./CONTENT_HYGIENE.md).
 
@@ -156,6 +156,6 @@ Publisher tooling also includes `tools/check_content_hygiene.py` (pre-generate c
 
 ## Contributing
 
-See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: more producer case studies ([template](./docs/DOGFOOD_TEMPLATE.md)), adopter feedback, and per-entry modified timestamps.
+See [ROADMAP.md](./ROADMAP.md) for prioritized work. Highest impact: more producer case studies ([template](./docs/DOGFOOD_TEMPLATE.md)), adopter feedback, and additional SSG integrations.
 
 MIT licensed.

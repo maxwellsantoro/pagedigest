@@ -39,7 +39,7 @@ Update README install blocks as each ships. Semver for implementations; spec `ve
 | Astro plugin (`@pagedigest/astro`) | done — `0.1.0` published to npm; OIDC releases configured |
 | Producer case study ([dotrepo](./docs/case-studies/dotrepo.md), [template](./docs/DOGFOOD_TEMPLATE.md)) | done — first measured case study |
 | Hygiene checker utility | done — `tools/check_content_hygiene.py` |
-| Generator: per-entry `modified` fields | P1 |
+| Generator: per-entry `modified` fields | done — stable observed-content timestamps via `--with-modified` |
 | Hugo / Eleventy / Jekyll plugins | P2 |
 
 Publisher pipeline: build → generate manifest → deploy → `reconcile_served_digests.py --apply` → verify. Details: [CONTENT_HYGIENE.md](./CONTENT_HYGIENE.md).
@@ -71,4 +71,4 @@ discovery, and additional hash algorithms remain reserved; see [SPEC.md](./SPEC.
 
 ## Contribute
 
-Open an issue referencing a phase. Highest leverage now: **adopter feedback**, **additional producer case studies**, and **per-entry modified timestamps**.
+Open an issue referencing a phase. Highest leverage now: **adopter feedback**, **additional producer case studies**, and **additional SSG integrations**.

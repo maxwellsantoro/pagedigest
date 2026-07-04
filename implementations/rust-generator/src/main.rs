@@ -55,6 +55,10 @@ struct Args {
     #[arg(long, default_value_t = false)]
     with_digest: bool,
 
+    /// Include stable per-entry content observation timestamps.
+    #[arg(long, default_value_t = false)]
+    with_modified: bool,
+
     /// Coverage metadata to emit.
     #[arg(long, value_enum, default_value_t = CoverageArg::Complete)]
     coverage: CoverageArg,
@@ -106,6 +110,8 @@ struct ManifestEntry {
     rev: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     digest: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    modified: Option<String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -120,6 +126,8 @@ struct State {
 struct StateEntry {
     rev: u64,
     digest: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    modified: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -155,12 +163,18 @@ fn main() -> Result<()> {
 
     let mut any_change = false;
     let mut entries = BTreeMap::new();
+    let mut next_state_entries = BTreeMap::new();
+    let observed_at = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
 
     for (url, digest) in &current_digests {
-        let (rev, changed) = match previous.entries.get(url) {
-            Some(prev) if prev.digest == *digest => (prev.rev, false),
-            Some(prev) => (prev.rev + 1, true),
-            None => (1, true),
+        let (rev, changed, modified) = match previous.entries.get(url) {
+            Some(prev) if prev.digest == *digest => (
+                prev.rev,
+                false,
+                prev.modified.clone().unwrap_or_else(|| observed_at.clone()),
+            ),
+            Some(prev) => (prev.rev + 1, true, observed_at.clone()),
+            None => (1, true, observed_at.clone()),
         };
 
         if changed {
@@ -172,6 +186,15 @@ fn main() -> Result<()> {
             ManifestEntry {
                 rev,
                 digest: args.with_digest.then(|| format!("sha256:{digest}")),
+                modified: args.with_modified.then(|| modified.clone()),
+            },
+        );
+        next_state_entries.insert(
+            url.clone(),
+            StateEntry {
+                rev,
+                digest: digest.clone(),
+                modified: Some(modified),
             },
         );
     }
@@ -193,7 +216,7 @@ fn main() -> Result<()> {
 
     let manifest = Manifest {
         version: 1,
-        generated: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        generated: observed_at,
         site_rev,
         coverage: coverage.clone(),
         entries,
@@ -202,13 +225,7 @@ fn main() -> Result<()> {
     let next_state = State {
         site_rev,
         coverage,
-        entries: current_digests
-            .into_iter()
-            .map(|(k, digest)| {
-                let rev = manifest.entries.get(&k).map(|e| e.rev).unwrap_or(1);
-                (k, StateEntry { rev, digest })
-            })
-            .collect(),
+        entries: next_state_entries,
     };
 
     write_json_atomic(&state_path, &next_state)?;

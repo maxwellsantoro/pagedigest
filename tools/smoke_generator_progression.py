@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 
@@ -136,16 +137,71 @@ def main() -> int:
         )
         assert_equal(m7["entries"]["/blog/"]["rev"], 1, "rev for new blog entry")
 
-        # Eighth run: same prefixes coverage, no change.
+        # Eighth run: enabling informational modified fields does not change
+        # revisions and uses the internally persisted first-observed timestamp.
         run_generator(
             site_dir,
             manifest_path,
             state_path,
-            extra_args=["--coverage", "prefixes", "--prefix", "/blog/"],
+            extra_args=[
+                "--coverage",
+                "prefixes",
+                "--prefix",
+                "/blog/",
+                "--with-modified",
+            ],
         )
         m8 = load_manifest(manifest_path)
         assert_equal(m8["site_rev"], 5, "site_rev after no-change prefixes run")
         assert_equal(list(m8["entries"].keys()), ["/blog/"], "entries stable")
+        modified_v1 = m8["entries"]["/blog/"]["modified"]
+        assert_equal(modified_v1, m7["generated"], "initial modified timestamp")
+
+        # Ninth run: unchanged content preserves modified exactly.
+        run_generator(
+            site_dir,
+            manifest_path,
+            state_path,
+            extra_args=[
+                "--coverage",
+                "prefixes",
+                "--prefix",
+                "/blog/",
+                "--with-modified",
+            ],
+        )
+        m9 = load_manifest(manifest_path)
+        assert_equal(m9["site_rev"], 5, "site_rev with stable modified timestamp")
+        assert_equal(
+            m9["entries"]["/blog/"]["modified"],
+            modified_v1,
+            "modified remains stable for unchanged content",
+        )
+
+        # Tenth run: a content change advances both rev and modified.
+        time.sleep(1.1)
+        (site_dir / "blog" / "index.html").write_text(
+            "hello changed blog\n", encoding="utf-8"
+        )
+        run_generator(
+            site_dir,
+            manifest_path,
+            state_path,
+            extra_args=[
+                "--coverage",
+                "prefixes",
+                "--prefix",
+                "/blog/",
+                "--with-modified",
+            ],
+        )
+        m10 = load_manifest(manifest_path)
+        assert_equal(m10["site_rev"], 6, "site_rev after modified content change")
+        assert_equal(
+            m10["entries"]["/blog/"]["rev"], 2, "rev after modified content change"
+        )
+        if m10["entries"]["/blog/"]["modified"] == modified_v1:
+            raise AssertionError("modified must advance when content changes")
 
     print("generator smoke progression passed")
     return 0

@@ -9,8 +9,7 @@ Crate name: `pagedigest`. Installed binary: `pagedigest-generator`.
 - Increments per-URL `rev` on content changes; `site_rev` on any add/remove/change; never decreases.
 - Maps `index.html` to `/` or `/section/` (`--index-style trailing-slash|file`).
 - Emits coverage metadata (see [Coverage](#coverage)).
-
-**Not emitted:** per-entry `modified`. Add in downstream integrations if needed.
+- Optionally emits stable per-entry `modified` timestamps (`--with-modified`).
 
 ## Coverage
 
@@ -36,6 +35,14 @@ Changing coverage semantics (mode or prefix list) increments `site_rev`, per
 
 Optional (`--with-digest`). Hashes on-disk file bytes, not served HTTP bytes. For audit-ready digests, follow the post-deploy pipeline in [CONTENT_HYGIENE.md](../../CONTENT_HYGIENE.md).
 
+## Modified timestamps
+
+Optional (`--with-modified`). The generator records when it first observes each
+content digest and persists that UTC timestamp in durable state. Unchanged
+content keeps the same timestamp across rebuilds; changed content receives the
+current generation timestamp. This deliberately avoids filesystem mtimes,
+which often churn when otherwise identical build artifacts are copied.
+
 ## Revision state
 
 Durable protocol state — keep private, outside ephemeral CI. See [site-state/README.md](../../site-state/README.md) for dogfood notes.
@@ -54,4 +61,6 @@ cargo install pagedigest
 pagedigest-generator ./site-dist
 ```
 
-Flags: `--index-style`, `--include-ext`, `--output`, `--state`, `--with-digest`, `--coverage complete|prefixes|none`, `--prefix` (repeatable; requires `--coverage prefixes`).
+Flags: `--index-style`, `--include-ext`, `--output`, `--state`,
+`--with-digest`, `--with-modified`, `--coverage complete|prefixes|none`,
+`--prefix` (repeatable; requires `--coverage prefixes`).
