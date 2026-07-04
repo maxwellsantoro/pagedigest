@@ -78,7 +78,7 @@ Live dogfood: [pagedigest.org](https://pagedigest.org). Source: [github.com/maxw
 ### Publisher — release binary
 
 Download the archive for Linux, macOS, or Windows from the
-[pagedigest-generator v0.1.0 release](https://github.com/maxwellsantoro/pagedigest/releases/tag/generator-v0.1.0),
+[pagedigest-generator v0.2.0 release](https://github.com/maxwellsantoro/pagedigest/releases/tag/generator-v0.2.0),
 extract it, then run:
 
 ```bash
