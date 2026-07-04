@@ -1,0 +1,26 @@
+{
+  "name": "pagedigest",
+  "version": "0.1.0",
+  "description": "Run the PageDigest manifest generator with npx",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://pagedigest.org",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxwellsantoro/pagedigest.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "pagedigest": "src/cli.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
