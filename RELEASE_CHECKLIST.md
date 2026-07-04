@@ -44,7 +44,7 @@ Objective gates for v1 RC and v1.0. Execution order and priorities: [ROADMAP.md]
 - [x] Well-known URI suffix registration filed and reflected in docs.
 - [x] Link relation registration filed and reflected in docs.
 - [ ] If short-form `rel` is registered, update examples across docs.
-- [x] README install sections match shipped packages (npm and GitHub Releases).
+- [x] README install sections match shipped packages (npm, PyPI, and GitHub Releases).
 - [x] At least one producer integration publicly documented ([dotrepo case study](./docs/case-studies/dotrepo.md)).
 - [x] At least one consumer integration publicly documented.
 - [x] Hygiene checker utility shipped (or explicitly deferred with issue).
