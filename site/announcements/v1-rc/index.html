@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PageDigest v1 release candidate</title>
+<meta name="description" content="PageDigest v1 is in release-candidate status: stable wire format, reference implementations, distribution packages, and live dogfood.">
+<link rel="canonical" href="https://pagedigest.org/announcements/v1-rc/">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://pagedigest.org/announcements/v1-rc/">
+<meta property="og:title" content="PageDigest v1 release candidate">
+<meta property="og:description" content="A one-file change-detection protocol for publishers and automated consumers is ready for adopter feedback.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="PageDigest v1 release candidate">
+<meta name="twitter:description" content="Stable wire format, reference implementations, package distribution, and live dogfood.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='10' y='10' width='44' height='44' rx='8' fill='%23152228'/%3E%3Ctext x='32' y='42' font-family='monospace' font-size='26' fill='%23F2F5F6' text-anchor='middle'%3E%E2%86%91%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F2F5F6;
+    --paper-deep: #E6ECEE;
+    --ink: #152228;
+    --ink-soft: #47585F;
+    --crawler: #0E6E62;
+    --crawler-wash: #DFEEEB;
+    --line: #C9D4D8;
+    --display: "Space Grotesk", system-ui, sans-serif;
+    --body: "Source Serif 4", Georgia, serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 1.08rem;
+    line-height: 1.68;
+  }
+  a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:focus-visible { outline: 2px solid var(--crawler); outline-offset: 3px; border-radius: 2px; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 22px; }
+  header.top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 26px 0 0;
+    font-family: var(--mono);
+    font-size: 0.9rem;
+  }
+  .wordmark { font-family: var(--mono); font-weight: 600; font-size: 1.05rem; text-decoration: none; }
+  .wordmark .dot { color: var(--crawler); }
+  nav.top-links { display: flex; gap: 18px; }
+  nav.top-links a { text-decoration: none; color: var(--ink-soft); }
+  nav.top-links a:hover { color: var(--ink); }
+  article { padding: 72px 0 40px; }
+  .eyebrow {
+    font-family: var(--mono);
+    color: var(--crawler);
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(2rem, 6vw, 3.45rem);
+    line-height: 1.05;
+    letter-spacing: -0.018em;
+    margin: 0 0 18px;
+    max-width: 13ch;
+  }
+  .lede { color: var(--ink-soft); font-size: 1.18rem; max-width: 62ch; margin: 0 0 34px; }
+  h2 {
+    font-family: var(--display);
+    font-size: clamp(1.35rem, 3vw, 1.8rem);
+    letter-spacing: -0.01em;
+    margin: 44px 0 10px;
+  }
+  p, ul { max-width: 66ch; }
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--paper-deep);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--ink);
+    color: #DDE7EA;
+    border-radius: 14px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+  .callout {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: white;
+    padding: 22px 24px;
+    margin: 28px 0;
+  }
+  .callout p { margin: 0; }
+  .links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin: 24px 0;
+    max-width: 760px;
+  }
+  .links a {
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--crawler-wash);
+    padding: 13px 15px;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    text-decoration: none;
+  }
+  footer {
+    margin-top: 42px;
+    padding: 28px 0 44px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 0.84rem;
+    color: var(--ink-soft);
+  }
+  @media (max-width: 640px) {
+    header.top { align-items: flex-start; flex-direction: column; gap: 12px; }
+    nav.top-links { flex-wrap: wrap; gap: 8px 14px; }
+    article { padding-top: 54px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="wordmark" href="/">pagedigest<span class="dot">.json</span></a>
+    <nav class="top-links" aria-label="Page navigation">
+      <a href="/">Home</a>
+      <a href="/.well-known/pagedigest.json">Manifest</a>
+      <a href="https://github.com/maxwellsantoro/pagedigest">GitHub</a>
+    </nav>
+  </header>
+
+  <article>
+    <p class="eyebrow">July 4, 2026 · Release candidate</p>
+    <h1>PageDigest v1 is ready for adopter feedback.</h1>
+    <p class="lede">PageDigest is a one-file change-detection protocol for public websites. A publisher serves a manifest at <code>/.well-known/pagedigest.json</code>; stateful consumers fetch that manifest, compare it with their cache, and skip page fetches for URLs that provably have not changed.</p>
+
+    <div class="callout">
+      <p>For a 10,000-page site that changes 20 pages in a week, a consumer can make one manifest request plus 20 page fetches instead of 10,000 per-URL checks.</p>
+    </div>
+
+    <h2>What is in the v1 RC</h2>
+    <ul>
+      <li>A stable wire format with <code>site_rev</code>, per-URL <code>rev</code>, optional <code>digest</code>, and optional <code>modified</code> fields.</li>
+      <li>Digest audit guidance for consumers that want to verify publisher claims.</li>
+      <li>Optional <code>PageDigest-State</code> request headers so cooperative consumers can make manifest observations visible in ordinary publisher logs.</li>
+      <li>Reference publisher and consumer implementations.</li>
+      <li>Distribution through GitHub Releases, Cargo, <code>npx</code>, PyPI, and an Astro integration.</li>
+      <li>Production dogfood on pagedigest.org and a measured producer case study for dotrepo.org.</li>
+    </ul>
+
+    <h2>Install paths</h2>
+    <pre>npx pagedigest ./site-dist
+cargo install pagedigest
+python -m pip install pagedigest
+npm install @pagedigest/astro</pre>
+
+    <h2>Useful links</h2>
+    <div class="links">
+      <a href="https://github.com/maxwellsantoro/pagedigest">Project</a>
+      <a href="https://github.com/maxwellsantoro/pagedigest/blob/main/SPEC.md">Spec</a>
+      <a href="https://github.com/maxwellsantoro/pagedigest/blob/main/CONTRACT.md">Contract</a>
+      <a href="https://github.com/maxwellsantoro/pagedigest/blob/main/ROADMAP.md">Roadmap</a>
+      <a href="/.well-known/pagedigest.json">Live dogfood manifest</a>
+      <a href="https://github.com/maxwellsantoro/pagedigest/issues/1">RC feedback</a>
+    </div>
+
+    <h2>What feedback would help</h2>
+    <ul>
+      <li>Publisher integration reports from static-site generators, custom build systems, CMS exports, and CDN/edge deployments.</li>
+      <li>Consumer integration reports from crawlers, caches, monitors, archive systems, agents, and search/indexing pipelines.</li>
+      <li>Any cases where URL keys, redirects, digest audits, deployment races, or partial coverage semantics are surprising in practice.</li>
+    </ul>
+
+    <p>The main remaining v1.0 dependency outside the repo is registry review for the well-known URI and link relation requests. The v1 field semantics are expected to remain stable through final v1.0.</p>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap">pagedigest — a protocol for cooperative change detection</div>
+</footer>
+</body>
+</html>
