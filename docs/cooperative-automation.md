@@ -144,6 +144,13 @@ Then add the returned namespace as a Pages KV binding named
 After deployment, the homepage will surface valid `PageDigest-State` observations
 and manifest request counts from that endpoint.
 
+Cloudflare Pages supports bindings via the dashboard or a Pages
+`wrangler.jsonc` file. The project currently deploys with
+`wrangler pages deploy site`; do not add a production `wrangler.jsonc` until the
+current Pages project config and KV namespace IDs have been downloaded or
+confirmed, because Cloudflare treats that file as the source of truth for Pages
+configuration once deployed.
+
 The counter is intentionally approximate. KV read-modify-write increments can
 lose concurrent updates; that is acceptable for a public proof widget. Treat
 Workers logs or Analytics Engine as the evidence source for real enforcement.

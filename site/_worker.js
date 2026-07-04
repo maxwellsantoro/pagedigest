@@ -15,6 +15,11 @@ async function increment(kv, key) {
   await kv.put(key, String(Number.isFinite(current) ? current + 1 : 1));
 }
 
+function countValue(value) {
+  const parsed = Number.parseInt(value ?? "0", 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 async function observationStats(env) {
   const kv = env.PAGEDIGEST_OBSERVATIONS;
   if (kv === undefined) {
@@ -31,10 +36,10 @@ async function observationStats(env) {
   ]);
   return {
     configured: true,
-    manifestRequests: Number.parseInt(manifestRequests ?? "0", 10),
-    statePresent: Number.parseInt(statePresent ?? "0", 10),
-    stateValid: Number.parseInt(stateValid ?? "0", 10),
-    stateInvalid: Number.parseInt(stateInvalid ?? "0", 10),
+    manifestRequests: countValue(manifestRequests),
+    statePresent: countValue(statePresent),
+    stateValid: countValue(stateValid),
+    stateInvalid: countValue(stateInvalid),
   };
 }
 
@@ -68,10 +73,19 @@ function recordObservation(request, env, ctx) {
   if (writes.length === 0) {
     return;
   }
-  const work = Promise.all(writes);
+  const work = Promise.all(writes).catch((error) => {
+    console.error(
+      JSON.stringify({
+        event: "pagedigest_observation_write_error",
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  });
   if (ctx?.waitUntil) {
     ctx.waitUntil(work);
+    return;
   }
+  void work;
 }
 
 export default {

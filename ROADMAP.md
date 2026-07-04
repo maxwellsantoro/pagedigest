@@ -19,7 +19,7 @@ dotrepo dogfood, agent consumption, and only then broad distribution.
 | Prior-art comparison on README/site/spec | done |
 | Reserve optional `PageDigest-State` + vectors | done |
 | Audit-economics failure-scope guidance | done |
-| pagedigest.org `PageDigest-State` observer | in progress — Worker shipped; bind KV for persisted counts |
+| pagedigest.org `PageDigest-State` observer | ready for binding — Worker shipped; bind `PAGEDIGEST_OBSERVATIONS` KV namespace in Cloudflare |
 
 ## Phase 2 — Distribution
 
