@@ -7,8 +7,11 @@
   "homepage": "https://pagedigest.org",
   "repository": {
     "type": "git",
-    "url": "https://github.com/maxwellsantoro/pagedigest.git",
+    "url": "git+https://github.com/maxwellsantoro/pagedigest.git",
     "directory": "packages/astro"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "exports": {
     ".": {
