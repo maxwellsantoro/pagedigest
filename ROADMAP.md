@@ -14,8 +14,8 @@ dotrepo dogfood, agent consumption, and only then broad distribution.
 |------|--------|
 | Pre-public docs/tests polish | done |
 | Tag `v1.0.0-rc.1` | done — released 2026-07-02 |
-| Adopter feedback channel (Issues/Discussions) | pending |
-| RC announcement | pending |
+| Adopter feedback channel (Issues/Discussions) | done — [v1 RC feedback issue](https://github.com/maxwellsantoro/pagedigest/issues/1) |
+| RC announcement | draft ready — [docs/announcements/v1-rc.md](./docs/announcements/v1-rc.md) |
 | Prior-art comparison on README/site/spec | done |
 | Reserve optional `PageDigest-State` + vectors | done |
 | Audit-economics failure-scope guidance | done |

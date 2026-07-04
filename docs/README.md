@@ -14,6 +14,7 @@ Agents: [AGENTS.md](../AGENTS.md) (symlinked as `CLAUDE.md`).
 | [case-studies/dotrepo.md](./case-studies/dotrepo.md) | Publishers & consumers | Measured dotrepo.org dogfood deployment |
 | [consumer-integration.md](./consumer-integration.md) | Consumers | Crawler, indexer, mirror, and agent integration guide |
 | [cooperative-automation.md](./cooperative-automation.md) | Publishers & intermediaries | `PageDigest-State` logging, classification, nginx, and Cloudflare recipes |
+| [announcements/v1-rc.md](./announcements/v1-rc.md) | Adopters & maintainers | Reusable v1 release-candidate announcement draft |
 | [registrations/](./registrations/) | Maintainers | IANA registration drafts and filed request links |
 
 Implementation guides: [rust-generator](../implementations/rust-generator/README.md), [python-consumer](../implementations/python-consumer/README.md).

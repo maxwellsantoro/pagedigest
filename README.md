@@ -69,7 +69,8 @@ Reference implementations ship in this repo, and the Astro integration is
 available from npm. Generator binaries ship through GitHub Releases, and the
 generator is installable through Cargo or `npx`; the consumer ships on PyPI.
 See [ROADMAP.md](./ROADMAP.md). RC adopters should not expect breaking field or
-semantics changes before v1.0.
+semantics changes before v1.0. Please report adoption feedback in
+[the v1 RC feedback issue](https://github.com/maxwellsantoro/pagedigest/issues/1).
 
 Live dogfood: [pagedigest.org](https://pagedigest.org). Source: [github.com/maxwellsantoro/pagedigest](https://github.com/maxwellsantoro/pagedigest). Sibling project: [dotrepo](https://dotrepo.org) ([ecosystem notes](./docs/ecosystem.md), [measured dogfood case study](./docs/case-studies/dotrepo.md)).
 
