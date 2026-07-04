@@ -3,11 +3,11 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "generator-v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to release, e.g. v1.0.0"
+        description: "Existing tag to release, e.g. generator-v0.1.0"
         required: true
         type: string
 
@@ -58,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           version="$(sed -n 's/^version = "\(.*\)"/\1/p' implementations/rust-generator/Cargo.toml | head -n 1)"
-          if [[ "${RELEASE_TAG}" != "v${version}" ]]; then
+          if [[ "${RELEASE_TAG}" != "generator-v${version}" ]]; then
             echo "tag ${RELEASE_TAG} does not match pagedigest-generator version ${version}" >&2
             exit 1
           fi
@@ -80,7 +80,8 @@ jobs:
           ARCHIVE_EXT: ${{ matrix.archive_ext }}
         run: |
           set -euo pipefail
-          asset="pagedigest-generator-${RELEASE_TAG}-${TARGET}"
+          release_version="${RELEASE_TAG#generator-}"
+          asset="pagedigest-generator-${release_version}-${TARGET}"
           package_dir="dist/${asset}"
           mkdir -p "${package_dir}"
           cp "implementations/rust-generator/target/${TARGET}/release/pagedigest-generator${BINARY_EXT}" "${package_dir}/"

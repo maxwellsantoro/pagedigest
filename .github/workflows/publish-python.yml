@@ -3,11 +3,11 @@ name: Publish Python package
 on:
   push:
     tags:
-      - "v*"
+      - "python-v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to publish, e.g. v1.0.0"
+        description: "Existing tag to publish, e.g. python-v0.1.0"
         required: true
         type: string
 
@@ -43,7 +43,7 @@ jobs:
           print(data["project"]["version"])
           PY
           )"
-          if [ "${RELEASE_TAG}" != "v${version}" ]; then
+          if [ "${RELEASE_TAG}" != "python-v${version}" ]; then
             echo "tag ${RELEASE_TAG} does not match pagedigest package version ${version}" >&2
             exit 1
           fi
