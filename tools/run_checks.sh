@@ -39,6 +39,7 @@ uv run --project "${PYTHON_CONSUMER_DIR}" --locked python "${ROOT_DIR}/tools/che
 
 echo "[7/11] testing Astro integration"
 cd "${ROOT_DIR}/packages/astro"
+npm ci
 npm test
 
 echo "[8/11] checking rust formatting"

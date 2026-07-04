@@ -7,3 +7,5 @@ implementations/rust-generator/target/
 *.pyc
 *.egg-info/
 .ruff_cache/
+**/node_modules/
+*.tgz
