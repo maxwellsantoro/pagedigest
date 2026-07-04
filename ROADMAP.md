@@ -28,7 +28,7 @@ dotrepo dogfood, agent consumption, and only then broad distribution.
 | GitHub Releases (`pagedigest-generator` binaries) | done — `v0.2.0` published for Linux, macOS, and Windows |
 | PyPI (`pagedigest` consumer) | done — `0.1.0` published with Trusted Publishing |
 | `cargo install` | done — `pagedigest 0.2.0` published to crates.io |
-| npm wrapper (`npx pagedigest`) | done — `pagedigest 0.1.0` published with verified binary downloads |
+| npm wrapper (`npx pagedigest`) | done — `pagedigest 0.2.0` published with verified binary downloads and Trusted Publishing |
 
 Update README install blocks as each ships. Semver for implementations; spec `version` stays `1`.
 
