@@ -21,7 +21,7 @@ Objective gates for v1 RC and v1.0. Execution order and priorities: [ROADMAP.md]
 - [x] Publish minimal generator reference implementation.
 - [x] Publish minimal consumer reference implementation.
 - [x] Dogfood on `pagedigest.org` with documented manifest cache policy (`site/_headers`).
-- [ ] Bind `PAGEDIGEST_OBSERVATIONS` KV for the pagedigest.org observer Worker and confirm live cooperative-request counts.
+- [x] Bind `PAGEDIGEST_OBSERVATIONS` KV for the pagedigest.org observer Worker and confirm live cooperative-request counts.
 - [x] Publish content-hygiene guidance and post-deploy reconcile tooling.
 - [x] Document static-hosting-friendly discovery fallback.
 - [x] README marks unshipped distribution paths as planned; in-repo usage documented.

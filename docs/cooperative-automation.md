@@ -129,9 +129,14 @@ It exposes a small same-origin JSON endpoint:
 /__pagedigest/cooperation.json
 ```
 
-Without storage configured, the endpoint reports `configured: false` and the
-site remains fully static. To persist the tiny counter, create a Cloudflare KV
-namespace and bind it to the Pages project as `PAGEDIGEST_OBSERVATIONS`.
+On pagedigest.org, the endpoint is backed by a Cloudflare KV namespace named
+`PAGEDIGEST_OBSERVATIONS`; live cooperative-request counts were confirmed on
+2026-07-04.
+
+For another Pages deployment, if storage is not configured, the endpoint reports
+`configured: false` and the site remains fully static. To persist the tiny
+counter, create a Cloudflare KV namespace and bind it to the Pages project as
+`PAGEDIGEST_OBSERVATIONS`.
 
 Example setup:
 
