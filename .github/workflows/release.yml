@@ -51,6 +51,18 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Check tag matches generator version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' implementations/rust-generator/Cargo.toml | head -n 1)"
+          if [[ "${RELEASE_TAG}" != "v${version}" ]]; then
+            echo "tag ${RELEASE_TAG} does not match pagedigest-generator version ${version}" >&2
+            exit 1
+          fi
+
       - name: Build release binary
         run: >
           cargo build

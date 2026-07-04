@@ -26,7 +26,7 @@ dotrepo dogfood, agent consumption, and only then broad distribution.
 | Task | Priority / status |
 |------|-------------------|
 | GitHub Releases (`pagedigest-generator` binaries) | P0 — draft release workflow ready |
-| PyPI (`pagedigest` consumer) | P0 — CLI entrypoint ready |
+| PyPI (`pagedigest` consumer) | P0 — package builds; Trusted Publishing workflow ready |
 | `cargo install` | P1 |
 | npm wrapper (`npx pagedigest`) | P2 |
 
