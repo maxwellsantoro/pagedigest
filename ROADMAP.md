@@ -48,7 +48,7 @@ Publisher pipeline: build → generate manifest → deploy → `reconcile_served
 
 | Task | Priority |
 |------|----------|
-| Consumer integration write-up | P0 |
+| Consumer integration write-up | done |
 | Reference sample (cache persistence) | P1 |
 | Live digest verification CLI (`pagedigest verify-live`) | done |
 
