@@ -150,6 +150,14 @@ async function writeJsonAtomic(filePath, value) {
   await rename(tempPath, filePath);
 }
 
+function utcNowIso(override) {
+  if (override) {
+    return override;
+  }
+  // Stable second precision, matching the Rust generator's Secs format.
+  return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
 export async function generateManifest(options) {
   const outputDir = path.resolve(options.outputDir);
   const outputPath = normalizeOutputPath(options.output ?? DEFAULT_OUTPUT);
@@ -157,7 +165,9 @@ export async function generateManifest(options) {
   const includeExtensions = new Set((options.includeExtensions ?? DEFAULT_EXTENSIONS).map(normalizeExtension));
   const coverage = normalizeCoverage(options.coverage);
   const withDigest = options.withDigest ?? true;
-  const generated = options.generated ?? new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  const withModified = options.withModified ?? false;
+  const observedAt = utcNowIso(options.generated);
+  const generated = observedAt;
 
   const previous = await readState(statePath);
   const files = await walkFiles(outputDir, includeExtensions, outputPath);
@@ -181,19 +191,23 @@ export async function generateManifest(options) {
     const previousEntry = previous.entries[urlKey] ?? previous.retired[urlKey];
     const wasActive = Object.hasOwn(previous.entries, urlKey);
     let rev;
+    let modified;
     if (previousEntry && previousEntry.content_hash === contentHash) {
       rev = previousEntry.rev;
+      modified = previousEntry.modified ?? observedAt;
       // Re-adding a retired key with identical content still changes coverage.
       if (!wasActive) {
         changed = true;
       }
     } else {
       rev = Math.max(1, (previousEntry?.rev ?? 0) + 1);
+      modified = observedAt;
       changed = true;
     }
     nextEntries[urlKey] = {
       rev,
       content_hash: contentHash,
+      modified,
       ...(withDigest ? { digest: `sha256:${contentHash}` } : {}),
     };
   }
@@ -211,6 +225,7 @@ export async function generateManifest(options) {
     nextRetired[urlKey] = {
       rev: previousEntry.rev,
       content_hash: previousEntry.content_hash,
+      ...(previousEntry.modified ? { modified: previousEntry.modified } : {}),
     };
   }
 
@@ -220,6 +235,7 @@ export async function generateManifest(options) {
     manifestEntries[urlKey] = {
       rev: entry.rev,
       ...(entry.digest ? { digest: entry.digest } : {}),
+      ...(withModified ? { modified: entry.modified } : {}),
     };
   }
 
@@ -262,11 +278,17 @@ export default function pagedigest(options = {}) {
           output: options.output,
           includeExtensions: options.includeExtensions,
           withDigest: options.withDigest,
+          withModified: options.withModified,
           coverage: options.coverage,
         });
         logger.info(
           `wrote ${path.relative(outputDir, result.manifestPath)} with ${Object.keys(result.manifest.entries).length} entries`,
         );
+        if (options.withDigest !== false) {
+          logger.info(
+            "digests hash build output; after deploy run tools/reconcile_served_digests.py --apply if the CDN rewrites HTML (see CONTENT_HYGIENE.md)",
+          );
+        }
       },
     },
   };

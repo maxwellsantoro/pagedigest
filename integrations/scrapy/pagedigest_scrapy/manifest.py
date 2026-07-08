@@ -1,21 +1,22 @@
 """Fetch, validate, and interpret a pagedigest manifest.
 
-Every validation failure returns an *unusable* result so the caller falls back to
-normal crawling. That is not defensive politeness; section 5.3 requires it.
+Validation and URL-key rules come from the published `pagedigest` consumer so
+this adapter cannot drift from the reference library. Every validation failure
+returns an *unusable* result so the caller falls back to normal crawling
+(SPEC §5.3).
 """
 
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from typing import Dict, Optional
 
 import requests
+from pagedigest import validate_manifest
 
 WELL_KNOWN = "/.well-known/pagedigest.json"
-MAX_BYTES = 10 * 1024 * 1024  # spec 7.3 baseline: consumers MAY refuse >10MB
-DIGEST_PATTERN = re.compile(r"^sha256:[a-f0-9]{64}$")
+MAX_BYTES = 10 * 1024 * 1024  # SPEC §7.3 baseline: consumers MAY refuse >10MB
 
 
 @dataclass
@@ -42,10 +43,6 @@ class Manifest:
 
     def entry_for(self, path: str) -> Optional[Entry]:
         return self.entries.get(path)
-
-
-class Unusable(Exception):
-    """Raised internally to signal fall-back-to-normal-crawling."""
 
 
 def fetch(
@@ -80,68 +77,42 @@ def fetch(
 
 
 def parse(raw: bytes, prev_site_rev: Optional[int]) -> Optional[Manifest]:
-    """Validate per spec section 3. Returns a Manifest or None (unusable).
+    """Validate with the reference consumer, then apply site_rev monotonicity.
 
-    `prev_site_rev` enforces monotonicity (4.1): a decrease is anomalous and
-    triggers fallback for the whole site.
+    `prev_site_rev` enforces SPEC §4.1: a decrease is anomalous and triggers
+    fallback for the whole site.
     """
     try:
         doc = json.loads(raw)
     except (ValueError, TypeError):
         return None
-    try:
-        if not isinstance(doc, dict):
-            raise Unusable
-        if doc.get("version") != 1:  # 3.1: unknown version -> unreadable
-            raise Unusable
-        site_rev = doc.get("site_rev")
-        if not _is_int(site_rev):  # 5.3: non-integer -> fallback
-            raise Unusable
-        if prev_site_rev is not None and site_rev < prev_site_rev:
-            raise Unusable  # 4.1: decrease -> anomaly
-
-        entries_doc = doc.get("entries")
-        if not isinstance(entries_doc, dict):
-            raise Unusable
-        entries: Dict[str, Entry] = {}
-        for key, ent in entries_doc.items():
-            if (
-                not isinstance(key, str)
-                or not key.startswith("/")
-                or key.startswith("//")
-            ):
-                continue  # skip malformed keys, don't fail whole manifest
-            if not isinstance(ent, dict) or not _is_int(ent.get("rev")):
-                continue
-            digest = ent.get("digest")
-            if digest is not None:
-                if not (isinstance(digest, str) and DIGEST_PATTERN.match(digest)):
-                    digest = None  # only well-formed sha256 in v1
-            entries[key] = Entry(rev=ent["rev"], digest=digest)
-
-        if "coverage" not in doc:
-            mode, prefixes = "unspecified", None
-        else:
-            cov = doc.get("coverage")
-            if not isinstance(cov, dict):
-                raise Unusable
-            mode = cov.get("mode")
-            prefixes = cov.get("prefixes")
-            if mode == "complete":
-                prefixes = None
-            elif mode == "prefixes":
-                if not (isinstance(prefixes, list) and prefixes):
-                    raise Unusable  # malformed coverage -> unusable
-                if not all(isinstance(p, str) and p.startswith("/") for p in prefixes):
-                    raise Unusable
-            else:
-                raise Unusable
-        return Manifest(
-            site_rev=site_rev, entries=entries, coverage_mode=mode, prefixes=prefixes
-        )
-    except Unusable:
+    if not isinstance(doc, dict):
+        return None
+    if validate_manifest(doc) is not None:
         return None
 
+    site_rev = doc["site_rev"]
+    if prev_site_rev is not None and site_rev < prev_site_rev:
+        return None
 
-def _is_int(v) -> bool:
-    return isinstance(v, int) and not isinstance(v, bool)
+    entries: Dict[str, Entry] = {}
+    for key, ent in doc["entries"].items():
+        digest = ent.get("digest") if isinstance(ent, dict) else None
+        entries[key] = Entry(
+            rev=ent["rev"],
+            digest=digest if isinstance(digest, str) else None,
+        )
+
+    if "coverage" not in doc:
+        mode, prefixes = "unspecified", None
+    else:
+        cov = doc["coverage"]
+        mode = cov["mode"]
+        prefixes = None if mode == "complete" else list(cov.get("prefixes") or [])
+
+    return Manifest(
+        site_rev=site_rev,
+        entries=entries,
+        coverage_mode=mode,
+        prefixes=prefixes,
+    )

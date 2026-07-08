@@ -10,6 +10,11 @@ function jsonResponse(body, status = 200) {
   });
 }
 
+// Best-effort observation counters only. Cloudflare KV get-then-put is not
+// atomic under concurrency, so these totals may under-count when many requests
+// race. That is acceptable for cooperative-crawl dashboards; do not treat the
+// numbers as exact billing or security evidence. A future durable-object or
+// single-key JSON counter can tighten this if product needs require it.
 async function increment(kv, key) {
   const current = Number.parseInt((await kv.get(key)) ?? "0", 10);
   await kv.put(key, String(Number.isFinite(current) ? current + 1 : 1));

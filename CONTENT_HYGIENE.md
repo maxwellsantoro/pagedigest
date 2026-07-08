@@ -2,6 +2,27 @@
 
 This guide helps publishers avoid false churn in `rev` and `digest` values.
 
+## Default pipeline (when digests are enabled)
+
+Generators hash **build output**. Audits hash **served** identity-encoded
+bytes. Treat the following as the default publisher path whenever
+`--with-digest` / `withDigest: true` is on:
+
+1. Build final static (or deterministic) output.
+2. Optional: `python tools/check_content_hygiene.py ./site-dist`.
+3. Generate the manifest (`pagedigest-generator`, `npx pagedigest`, or
+   `@pagedigest/astro`).
+4. Deploy pages + manifest (atomic if possible; else pages first, then
+   manifest).
+5. **Reconcile:** `python tools/reconcile_served_digests.py <manifest>
+   --base-url https://example.com --apply`, then redeploy the manifest if it
+   changed.
+6. **Verify:** `pagedigest verify-live https://example.com --sample-size 25`.
+
+Skipping step 5 is the usual cause of honest publishers failing their own
+audits (CDN minification, email obfuscation, script injectors). If you cannot
+reconcile, omit digests and rely on `rev` only.
+
 ## Why this matters
 
 If non-content bytes change on every build or request, `pagedigest` becomes noisy:

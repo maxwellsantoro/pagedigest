@@ -5,11 +5,12 @@ A [Scrapy](https://scrapy.org) downloader middleware that **consumes** a
 URLs whose `rev` hasn't changed since the last crawl, sends the optional
 cooperation header, and audits a fraction of skips against publisher digests.
 
-This is an experimental Scrapy adapter on top of the existing consumer
-ecosystem. The reference library is on PyPI (`pip install pagedigest`);
-integration notes live in
-[`docs/consumer-integration.md`](../../docs/consumer-integration.md). This
-package shows the same protocol decisions inside a real crawler framework.
+This is an experimental Scrapy adapter on top of the published consumer
+library. Manifest validation and `PageDigest-State` header encode/decode are
+**delegated to** [`pagedigest`](https://pypi.org/project/pagedigest/)
+(`validate_manifest`, `format_state_header`, `parse_state_header`) so this
+adapter cannot drift from the reference implementation. Integration notes live
+in [`docs/consumer-integration.md`](../../docs/consumer-integration.md).
 
 ## What it does, mapped to the spec
 
@@ -46,9 +47,11 @@ Offline decision-logic tests (`tests/test_offline.py`) run in
 
 ## Install & enable
 
-From this directory, use an isolated environment and install the local package:
+From this directory, use an isolated environment and install the local package
+(pulls `pagedigest>=0.1.0` from PyPI, or point at the in-tree consumer):
 
 ```bash
+python -m pip install -e ../../implementations/python-consumer
 python -m pip install -e .
 ```
 

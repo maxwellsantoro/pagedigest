@@ -64,7 +64,9 @@ When changing protocol behavior: update **SPEC** if normative, add/adjust **test
 | Rust generator (`cargo install pagedigest`, `npx pagedigest`, and release binaries) | |
 | Python consumer (`pip install pagedigest`) | |
 | Astro integration (`npm install @pagedigest/astro`) | Additional SSG plugins |
-| Conformance vectors + CI | IANA well-known + link-relation registration |
+| Conformance vectors + CI | IANA short-form `rel` (extension URI works today) |
+
+Publisher digests: generate → deploy → `tools/reconcile_served_digests.py --apply` → verify. Version matrix: [README.md](./README.md#version-matrix).
 
 Do not document planned install paths as available without updating [README.md](./README.md) and [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
 

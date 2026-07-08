@@ -168,6 +168,45 @@ test("percent-encodes spaces in path segments", async () => {
   }
 });
 
+test("withModified emits stable observation timestamps across rebuilds", async () => {
+  const root = await fixture();
+  try {
+    const out = path.join(root, "dist");
+    const state = path.join(root, "state.json");
+    await mkdir(out, { recursive: true });
+    await writeFile(path.join(out, "index.html"), "stable\n", "utf8");
+
+    const first = await generateManifest({
+      outputDir: out,
+      statePath: state,
+      withModified: true,
+      generated: "2026-07-04T00:00:00Z",
+    });
+    assert.equal(first.manifest.entries["/"].modified, "2026-07-04T00:00:00Z");
+
+    const second = await generateManifest({
+      outputDir: out,
+      statePath: state,
+      withModified: true,
+      generated: "2026-07-04T12:00:00Z",
+    });
+    assert.equal(second.manifest.site_rev, 1);
+    assert.equal(second.manifest.entries["/"].modified, "2026-07-04T00:00:00Z");
+
+    await writeFile(path.join(out, "index.html"), "changed\n", "utf8");
+    const third = await generateManifest({
+      outputDir: out,
+      statePath: state,
+      withModified: true,
+      generated: "2026-07-05T00:00:00Z",
+    });
+    assert.equal(third.manifest.site_rev, 2);
+    assert.equal(third.manifest.entries["/"].modified, "2026-07-05T00:00:00Z");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("integration exposes Astro build hooks", () => {
   const integration = pagedigest();
   assert.equal(integration.name, "@pagedigest/astro");

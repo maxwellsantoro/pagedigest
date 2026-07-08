@@ -772,10 +772,24 @@ wheels = [
 ]
 
 [[package]]
+name = "pagedigest"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests", version = "2.32.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "requests", version = "2.34.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ca/11/dfb5eca656956a82abf5f77755349c6f6943c13589e0658ee1e20f1a9d55/pagedigest-0.1.0.tar.gz", hash = "sha256:9f68cac82aacba910dab4695f4c7b2b0a9b234d8d9cb430b680629c2f5d00a55", size = 15665, upload-time = "2026-07-04T03:28:07.306Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/40/eb7c6513bec2eb9eada5b33418f5e047fe8862b97a6d4ebd3694ddcf84a7/pagedigest-0.1.0-py3-none-any.whl", hash = "sha256:56eced6ac1215d07db2074fd3a7773b6974ef062d5e4ad3e15d7b562472d97d5", size = 10172, upload-time = "2026-07-04T03:28:06.307Z" },
+]
+
+[[package]]
 name = "pagedigest-scrapy"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pagedigest" },
     { name = "requests", version = "2.32.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "requests", version = "2.34.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "scrapy", version = "2.13.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -784,6 +798,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "pagedigest", specifier = ">=0.1.0" },
     { name = "requests", specifier = ">=2.31" },
     { name = "scrapy", specifier = ">=2.11" },
 ]

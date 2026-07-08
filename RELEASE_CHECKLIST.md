@@ -43,13 +43,15 @@ Objective gates for v1 RC and v1.0. Execution order and priorities: [ROADMAP.md]
 
 - [x] Well-known URI suffix registration filed and reflected in docs.
 - [x] Link relation registration filed and reflected in docs.
-- [ ] If short-form `rel` is registered, update examples across docs.
+- [ ] If short-form `rel` is registered, update examples across docs. *(Not a hard blocker: v1.0 may ship with `rel="https://pagedigest.org/rel"`; close this when IANA assigns a short token.)*
 - [x] README install sections match shipped packages (npm, PyPI, crates.io, and GitHub Releases).
+- [x] README version matrix lists spec vs implementation semver.
 - [x] At least one producer integration publicly documented ([dotrepo case study](./docs/case-studies/dotrepo.md)).
 - [x] At least one consumer integration publicly documented.
 - [x] Hygiene checker utility shipped (or explicitly deferred with issue).
+- [x] Publisher pipeline documents post-deploy reconcile as the default path when digests are enabled ([CONTENT_HYGIENE.md](./CONTENT_HYGIENE.md)).
 - [x] At least one SSG plugin shipped ([Astro on npm](https://www.npmjs.com/package/@pagedigest/astro)).
-- [x] Experimental Scrapy consumer offline tests gated in `./tools/run_checks.sh` (package still unpublished / experimental).
+- [x] Experimental Scrapy consumer offline tests gated in `./tools/run_checks.sh` (package still unpublished / experimental; shares reference `validate_manifest` / state header).
 - [x] Generator↔Astro static-HTML conformance smoke gated in `./tools/run_checks.sh`.
 
 ## Discovery (RC guidance)

@@ -66,7 +66,10 @@ uv run --project "${PYTHON_CONSUMER_DIR}" --locked python "${ROOT_DIR}/tools/smo
 
 echo "[13/14] testing scrapy offline integration"
 cd "${ROOT_DIR}/integrations/scrapy"
-uv run --with 'Scrapy>=2.11' --with 'requests>=2.31' python tests/test_offline.py
+# Use the in-tree consumer so adapter tests track reference validation, not PyPI lag.
+uv run --with 'Scrapy>=2.11' --with 'requests>=2.31' \
+  --with-editable "${ROOT_DIR}/implementations/python-consumer" \
+  python tests/test_offline.py
 
 echo "[14/14] checking dogfood manifest in sync with site/"
 cd "${ROOT_DIR}"

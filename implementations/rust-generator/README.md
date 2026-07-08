@@ -35,7 +35,19 @@ Changing coverage semantics (mode or prefix list) increments `site_rev`, per
 
 ## Digests
 
-Optional (`--with-digest`). Hashes on-disk file bytes, not served HTTP bytes. For audit-ready digests, follow the post-deploy pipeline in [CONTENT_HYGIENE.md](../../CONTENT_HYGIENE.md).
+Optional (`--with-digest`). Hashes **on-disk** file bytes, not served HTTP
+bytes. Emitting digests without a post-deploy check is the most common
+publisher foot-gun.
+
+**Default path when digests are enabled:**
+
+1. Generate from final static output (`--with-digest`).
+2. Deploy pages + manifest (atomic if possible; else pages first).
+3. `python tools/reconcile_served_digests.py <manifest> --base-url https://… --apply`
+4. Redeploy the manifest if digests changed; sample with `pagedigest verify-live`.
+
+If you cannot reconcile (or the host rewrites HTML unpredictably), omit
+`--with-digest` and ship `rev` only. Details: [CONTENT_HYGIENE.md](../../CONTENT_HYGIENE.md).
 
 ## Modified timestamps
 

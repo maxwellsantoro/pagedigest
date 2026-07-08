@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 
 export const GENERATOR_VERSION = "0.2.0";
 const RELEASE_ROOT = `https://github.com/maxwellsantoro/pagedigest/releases/download/generator-v${GENERATOR_VERSION}`;
-const MAX_ARCHIVE_BYTES = 10 * 1024 * 1024;
+export const MAX_ARCHIVE_BYTES = 10 * 1024 * 1024;
 
 export const ASSETS = Object.freeze({
   "darwin-arm64": {
@@ -49,9 +49,9 @@ export function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function cacheDirectory(env = process.env) {
+export function cacheDirectory(env = process.env, platform = process.platform, arch = process.arch) {
   const base = env.PAGEDIGEST_CACHE_DIR || env.XDG_CACHE_HOME || path.join(homedir(), ".cache");
-  return path.join(base, "pagedigest", GENERATOR_VERSION, `${process.platform}-${process.arch}`);
+  return path.join(base, "pagedigest", GENERATOR_VERSION, `${platform}-${arch}`);
 }
 
 async function isFile(filename) {
@@ -63,17 +63,27 @@ async function isFile(filename) {
   }
 }
 
-async function download(asset) {
-  const response = await fetch(asset.url, { redirect: "follow" });
+/**
+ * Download and verify a generator archive.
+ * @param {ReturnType<typeof assetFor>} asset
+ * @param {{ fetchImpl?: typeof fetch, maxBytes?: number }} [options]
+ */
+export async function download(asset, options = {}) {
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+  const maxBytes = options.maxBytes ?? MAX_ARCHIVE_BYTES;
+  if (typeof fetchImpl !== "function") {
+    throw new Error("fetch is not available; Node.js 20+ is required");
+  }
+  const response = await fetchImpl(asset.url, { redirect: "follow" });
   if (!response.ok) {
     throw new Error(`failed to download generator (${response.status} ${response.statusText})`);
   }
   const declaredLength = Number(response.headers.get("content-length") || 0);
-  if (declaredLength > MAX_ARCHIVE_BYTES) {
+  if (declaredLength > maxBytes) {
     throw new Error("generator archive exceeds the download size limit");
   }
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.byteLength > MAX_ARCHIVE_BYTES) {
+  if (bytes.byteLength > maxBytes) {
     throw new Error("generator archive exceeds the download size limit");
   }
   const actualDigest = sha256(bytes);
@@ -83,13 +93,21 @@ async function download(asset) {
   return bytes;
 }
 
-async function installBinary(asset, destination) {
+/**
+ * Install a verified archive into destination.
+ * Archives are extracted with the system `tar` (including `.zip` on Windows via tar.exe).
+ * @param {ReturnType<typeof assetFor>} asset
+ * @param {string} destination
+ * @param {{ fetchImpl?: typeof fetch, maxBytes?: number, platform?: string }} [options]
+ */
+export async function installBinary(asset, destination, options = {}) {
+  const platform = options.platform ?? process.platform;
   const cacheRoot = path.dirname(destination);
   await mkdir(cacheRoot, { recursive: true });
   const tempRoot = await mkdtemp(path.join(cacheRoot, ".install-"));
   try {
     const archivePath = path.join(tempRoot, asset.archiveName);
-    await writeFile(archivePath, await download(asset), { flag: "wx" });
+    await writeFile(archivePath, await download(asset, options), { flag: "wx" });
     const extractRoot = path.join(tempRoot, "extract");
     await mkdir(extractRoot);
     const extracted = spawnSync("tar", ["-xf", archivePath, "-C", extractRoot], {
@@ -100,7 +118,7 @@ async function installBinary(asset, destination) {
       const detail = extracted.error?.message || extracted.stderr.trim() || `exit ${extracted.status}`;
       throw new Error(`failed to extract generator archive with tar: ${detail}`);
     }
-    const binaryName = process.platform === "win32" ? "pagedigest-generator.exe" : "pagedigest-generator";
+    const binaryName = platform === "win32" ? "pagedigest-generator.exe" : "pagedigest-generator";
     const archiveStem = asset.archiveName.replace(/\.(?:tar\.gz|zip)$/, "");
     const source = path.join(extractRoot, archiveStem, binaryName);
     if (!(await isFile(source))) {
@@ -108,7 +126,7 @@ async function installBinary(asset, destination) {
     }
     const staged = path.join(tempRoot, binaryName);
     await copyFile(source, staged);
-    if (process.platform !== "win32") await chmod(staged, 0o755);
+    if (platform !== "win32") await chmod(staged, 0o755);
     try {
       await rename(staged, destination);
     } catch (error) {
@@ -119,11 +137,20 @@ async function installBinary(asset, destination) {
   }
 }
 
-export async function generatorBinary() {
-  const binaryName = process.platform === "win32" ? "pagedigest-generator.exe" : "pagedigest-generator";
-  const destination = path.join(cacheDirectory(), binaryName);
-  if (!(await isFile(destination))) await installBinary(assetFor(), destination);
+export async function generatorBinary(options = {}) {
+  const platform = options.platform ?? process.platform;
+  const arch = options.arch ?? process.arch;
+  const env = options.env ?? process.env;
+  const binaryName = platform === "win32" ? "pagedigest-generator.exe" : "pagedigest-generator";
+  const destination = path.join(cacheDirectory(env, platform, arch), binaryName);
+  if (!(await isFile(destination))) {
+    await installBinary(assetFor(platform, arch), destination, { ...options, platform });
+  }
   return destination;
+}
+
+function digestReminder(args) {
+  return args.includes("--with-digest");
 }
 
 export async function main(args = process.argv.slice(2)) {
@@ -132,6 +159,11 @@ export async function main(args = process.argv.slice(2)) {
   if (result.error) throw result.error;
   if (result.signal) throw new Error(`pagedigest-generator terminated by ${result.signal}`);
   process.exitCode = result.status ?? 1;
+  if (result.status === 0 && digestReminder(args)) {
+    console.error(
+      "pagedigest: digests hash on-disk build output. After deploy, run tools/reconcile_served_digests.py --apply if the CDN rewrites HTML (CONTENT_HYGIENE.md).",
+    );
+  }
 }
 
 const invokedDirectly = process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);

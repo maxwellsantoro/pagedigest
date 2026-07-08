@@ -51,7 +51,9 @@ struct Args {
     ])]
     include_ext: Vec<String>,
 
-    /// Include per-entry sha256 digest values.
+    /// Include per-entry sha256 digests of on-disk file bytes.
+    /// After deploy, reconcile against live identity responses when a CDN
+    /// rewrites HTML (see CONTENT_HYGIENE.md / reconcile_served_digests.py).
     #[arg(long, default_value_t = false)]
     with_digest: bool,
 
@@ -254,6 +256,11 @@ fn main() -> Result<()> {
     println!("wrote {}", output_path.display());
     println!("state {}", state_path.display());
     println!("site_rev {}", site_rev);
+    if args.with_digest {
+        eprintln!(
+            "note: digests hash on-disk build output. After deploy, run tools/reconcile_served_digests.py --apply if the CDN rewrites HTML (CONTENT_HYGIENE.md)."
+        );
+    }
     Ok(())
 }
 
