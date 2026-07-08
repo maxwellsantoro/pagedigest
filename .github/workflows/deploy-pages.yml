@@ -20,6 +20,11 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
       - name: Run repository checks
         run: ./tools/run_checks.sh
 

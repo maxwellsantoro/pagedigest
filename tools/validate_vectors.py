@@ -94,6 +94,71 @@ def assert_invalid_key_fragment(path: Path) -> None:
         raise ValueError(f"{path.name}: expected a key containing fragment marker #")
 
 
+def assert_invalid_key_scheme_relative(path: Path) -> None:
+    data = read_json(path)
+    keys = (data.get("entries") or {}).keys()
+    if not any(k.startswith("//") for k in keys):
+        raise ValueError(
+            f"{path.name}: expected a scheme-relative key starting with //"
+        )
+    core = load_consumer_core()
+    err = core.validate_manifest(data)
+    if err is None:
+        raise ValueError(
+            f"{path.name}: consumer should reject scheme-relative URL keys"
+        )
+
+
+def assert_invalid_digest_shape(path: Path) -> None:
+    data = read_json(path)
+    core = load_consumer_core()
+    err = core.validate_manifest(data)
+    if err != "invalid-digest":
+        raise ValueError(f"{path.name}: expected invalid-digest, got {err!r}")
+
+
+def assert_site_rev_equal_short_circuit(prev_path: Path, next_path: Path) -> None:
+    prev = read_json(prev_path)
+    nxt = read_json(next_path)
+    if prev["site_rev"] != nxt["site_rev"]:
+        raise ValueError("expected equal site_rev for short-circuit pair")
+    core = load_consumer_core()
+    decisions = core.diff(
+        nxt, prev["site_rev"], {k: e["rev"] for k, e in prev["entries"].items()}
+    )
+    if decisions.get("site_changed"):
+        raise ValueError("equal site_rev must report site_changed=False")
+    if (
+        decisions.get("changed")
+        or decisions.get("new")
+        or decisions.get("fallback_urls")
+    ):
+        raise ValueError("equal site_rev short-circuit must not schedule fetches")
+    if sorted(decisions.get("unchanged", [])) != sorted(nxt["entries"].keys()):
+        raise ValueError(
+            "equal site_rev short-circuit should list all keys as unchanged"
+        )
+
+
+def assert_complete_removal(prev_path: Path, next_path: Path) -> None:
+    prev = read_json(prev_path)
+    nxt = read_json(next_path)
+    if (prev.get("coverage") or {}).get("mode") != "complete":
+        raise ValueError("expected complete coverage on prev")
+    if (nxt.get("coverage") or {}).get("mode") != "complete":
+        raise ValueError("expected complete coverage on next")
+    if nxt["site_rev"] <= prev["site_rev"]:
+        raise ValueError("expected site_rev increase when entries are removed")
+    core = load_consumer_core()
+    decisions = core.diff(
+        nxt,
+        prev["site_rev"],
+        {k: e["rev"] for k, e in prev["entries"].items()},
+    )
+    if "/about" not in decisions.get("removed", []):
+        raise ValueError("complete coverage should surface removed keys")
+
+
 def assert_monotonicity_violation(prev_path: Path, next_path: Path) -> None:
     prev = read_json(prev_path)
     nxt = read_json(next_path)
@@ -237,8 +302,12 @@ def main() -> int:
         "url-key-variants",
         "invalid-missing-required",
         "invalid-url-key-fragment",
+        "invalid-url-key-scheme-relative",
+        "invalid-digest-shape",
         "violation-monotonicity",
         "rollback-content",
+        "site-rev-equal-short-circuit",
+        "complete-removal",
         "audit-match",
         "audit-mismatch",
         "header-formats",
@@ -261,6 +330,10 @@ def main() -> int:
         VECTORS / "violation-monotonicity-next.json",
         VECTORS / "rollback-content-prev.json",
         VECTORS / "rollback-content-next.json",
+        VECTORS / "site-rev-equal-short-circuit-prev.json",
+        VECTORS / "site-rev-equal-short-circuit-next.json",
+        VECTORS / "complete-removal-prev.json",
+        VECTORS / "complete-removal-next.json",
         VECTORS / "audit-match" / "manifest.json",
         VECTORS / "audit-mismatch" / "manifest.json",
     ]
@@ -270,6 +343,7 @@ def main() -> int:
     invalid_fixtures = [
         VECTORS / "invalid-missing-required.json",
         VECTORS / "invalid-url-key-fragment.json",
+        VECTORS / "invalid-digest-shape.json",
     ]
     for path in invalid_fixtures:
         assert_schema_invalid(validator, path)
@@ -282,6 +356,8 @@ def main() -> int:
 
     assert_invalid_missing_required(VECTORS / "invalid-missing-required.json")
     assert_invalid_key_fragment(VECTORS / "invalid-url-key-fragment.json")
+    assert_invalid_key_scheme_relative(VECTORS / "invalid-url-key-scheme-relative.json")
+    assert_invalid_digest_shape(VECTORS / "invalid-digest-shape.json")
     assert_monotonicity_violation(
         VECTORS / "violation-monotonicity-prev.json",
         VECTORS / "violation-monotonicity-next.json",
@@ -297,6 +373,14 @@ def main() -> int:
     assert_coverage_prefixes_change_bumps_site_rev(
         VECTORS / "coverage-prefixes-change-prev.json",
         VECTORS / "coverage-prefixes-change-next.json",
+    )
+    assert_site_rev_equal_short_circuit(
+        VECTORS / "site-rev-equal-short-circuit-prev.json",
+        VECTORS / "site-rev-equal-short-circuit-next.json",
+    )
+    assert_complete_removal(
+        VECTORS / "complete-removal-prev.json",
+        VECTORS / "complete-removal-next.json",
     )
     assert_url_key_variants(VECTORS / "url-key-variants.json")
     assert_audit_case(

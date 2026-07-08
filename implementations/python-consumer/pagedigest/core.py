@@ -84,6 +84,9 @@ def _validate_url_key(key: Any) -> str | None:
         return "invalid-url-key-type"
     if not URL_KEY_PATTERN.match(key):
         return "invalid-url-key-pattern"
+    # Scheme-relative authority form ("//host/...") is not a valid origin-relative key.
+    if key.startswith("//"):
+        return "invalid-url-key-scheme-relative"
     if " " in key:
         return "invalid-url-key-space"
 
@@ -276,6 +279,10 @@ def identity_digest(
     return "sha256:" + hasher.hexdigest(), None
 
 
+def _manifest_redirect_error(status_code: int) -> str:
+    return "manifest-redirect" if 300 <= status_code < 400 else "manifest-unavailable"
+
+
 def fetch(
     base_url: str,
     timeout: int = 10,
@@ -284,7 +291,11 @@ def fetch(
     session: requests.Session | None = None,
     max_bytes: int = DEFAULT_MAX_MANIFEST_BYTES,
 ) -> FetchResult:
-    """Fetch the pagedigest manifest with graceful fallback semantics."""
+    """Fetch the pagedigest manifest with graceful fallback semantics.
+
+    Redirects are not followed. A redirected manifest is treated as unusable so a
+    cross-origin or unexpected hop cannot silently supply another origin's JSON.
+    """
     s = session or requests.Session()
     headers: dict[str, str] = {}
     if etag:
@@ -294,7 +305,7 @@ def fetch(
 
     try:
         url = manifest_url(base_url)
-        r = s.get(url, headers=headers, timeout=timeout, stream=True)
+        r = s.get(url, headers=headers, timeout=timeout, stream=True, allow_redirects=False)
     except requests.RequestException as exc:
         return FetchResult(False, None, None, None, None, str(exc))
     except ValueError as exc:
@@ -311,7 +322,7 @@ def fetch(
                 None,
                 r.headers.get("ETag"),
                 r.headers.get("Last-Modified"),
-                "manifest-unavailable",
+                _manifest_redirect_error(r.status_code),
             )
 
         body, size_error = _read_manifest_body(r, max_bytes)
@@ -360,7 +371,7 @@ def fetch_manifest_url(
 
     This is useful for deployment gates that need to verify a non-default or
     pre-production manifest URL while still applying normal PageDigest
-    validation and response-size limits.
+    validation and response-size limits. Redirects are not followed.
     """
     parsed = urlsplit(url)
     if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
@@ -368,7 +379,7 @@ def fetch_manifest_url(
 
     s = session or requests.Session()
     try:
-        r = s.get(url, timeout=timeout, stream=True)
+        r = s.get(url, timeout=timeout, stream=True, allow_redirects=False)
     except requests.RequestException as exc:
         return FetchResult(False, None, None, None, None, str(exc))
 
@@ -380,7 +391,7 @@ def fetch_manifest_url(
                 None,
                 r.headers.get("ETag"),
                 r.headers.get("Last-Modified"),
-                "manifest-unavailable",
+                _manifest_redirect_error(r.status_code),
             )
 
         body, size_error = _read_manifest_body(r, max_bytes)
@@ -424,7 +435,13 @@ def diff(
     cached_site_rev: int | None,
     cached_revs: dict[str, int] | None,
 ) -> dict[str, Any]:
-    """Compare a manifest against cached state and return crawl decisions."""
+    """Compare a manifest against cached state and return crawl decisions.
+
+    Integrators that only crawl ``changed`` + ``new`` must also treat
+    ``fallback_urls`` (and any ``anomalies``) as need-to-fetch: a per-URL
+    ``rev`` decrease is anomalous and MUST fall back to conventional crawl for
+    that URL (SPEC §5.1), not skip it as "unchanged".
+    """
     cached_revs = cached_revs or {}
     site_rev = manifest["site_rev"]
     entries: dict[str, Any] = manifest["entries"]
@@ -444,6 +461,7 @@ def diff(
                     "manifest": site_rev,
                 }
             ],
+            "fallback_urls": [],
             "site_anomaly": "site-rev-decrease",
             "site_rev": site_rev,
         }
@@ -456,6 +474,7 @@ def diff(
             "unchanged": sorted(entries.keys()),
             "removed": [],
             "anomalies": [],
+            "fallback_urls": [],
             "site_rev": site_rev,
         }
 
@@ -463,6 +482,7 @@ def diff(
     new: list[str] = []
     unchanged: list[str] = []
     anomalies: list[dict[str, Any]] = []
+    fallback_urls: list[str] = []
 
     for url_key, entry in entries.items():
         rev = entry.get("rev")
@@ -475,6 +495,7 @@ def diff(
             unchanged.append(url_key)
         else:
             anomalies.append({"url": url_key, "reason": "rev-decrease", "cached": prev, "manifest": rev})
+            fallback_urls.append(url_key)
 
     removed = sorted(set(cached_revs) - set(entries))
     if removed and coverage_mode != "complete":
@@ -487,6 +508,7 @@ def diff(
         "unchanged": sorted(unchanged),
         "removed": removed,
         "anomalies": anomalies,
+        "fallback_urls": sorted(fallback_urls),
         "site_rev": site_rev,
     }
 
@@ -611,6 +633,18 @@ def verify_live(
         return {
             "ok": True,
             "manifest_url": manifest_location,
+            "sampled": 0,
+            "match_count": 0,
+            "mismatch_count": 0,
+            "inconclusive_count": 0,
+            "results": [],
+        }
+
+    if sample_size < 0:
+        return {
+            "ok": False,
+            "manifest_url": manifest_location,
+            "error": "invalid-sample-size",
             "sampled": 0,
             "match_count": 0,
             "mismatch_count": 0,

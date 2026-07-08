@@ -63,11 +63,27 @@ Copy-paste default path (also on the [README](./README.md#publisher-pipeline-def
    without disabling any host feature.
 6. Sample live audits: `pagedigest verify-live <origin>`.
 
+### Digest-only reconcile and `site_rev`
+
+By default, `--apply` updates digests (or drops unstable digests) and refreshes
+`generated` **without** incrementing `site_rev`. That matches the SPEC: content
+did not change, only the audit surface.
+
+Consumers that short-circuit on equal `site_rev` will not re-read the entry map
+until the next content-driven bump, so their cached digests may lag until then.
+If your consumer pipeline only refreshes digests when `site_rev` moves, pass
+`--bump-site-rev` with `--apply`, or re-audit digests out of band
+(`pagedigest verify-live`).
+
 ## Digest reliability note
 
 The current minimal Rust generator hashes source file bytes from the selected input directory.
 
 Use it against final rendered output whenever possible. If CDN/edge layers transform HTML bytes (for example minification or script injection), digest audits may fail even when publisher intent is honest.
+
+Generators retain per-URL `rev` high-water marks when a URL leaves the covered
+set (delete or coverage filter), so republishing the same key later does not
+reset `rev` to `1` and force consumer anomaly fallback (SPEC §4.1.1).
 
 ## Quick checklist before publishing
 

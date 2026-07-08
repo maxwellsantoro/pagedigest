@@ -119,10 +119,15 @@ struct State {
     site_rev: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     coverage: Option<Coverage>,
+    /// Currently covered URL keys (present in the last emitted manifest).
     entries: BTreeMap<String, StateEntry>,
+    /// High-water marks for URLs that left the scan set (SPEC §4.1.1).
+    /// Kept so a later re-add cannot emit a lower per-URL `rev`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    retired: BTreeMap<String, StateEntry>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct StateEntry {
     rev: u64,
     digest: String,
@@ -167,10 +172,16 @@ fn main() -> Result<()> {
     let observed_at = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
 
     for (url, digest) in &current_digests {
-        let (rev, changed, modified) = match previous.entries.get(url) {
+        let prev = previous
+            .entries
+            .get(url)
+            .or_else(|| previous.retired.get(url));
+        let (rev, changed, modified) = match prev {
             Some(prev) if prev.digest == *digest => (
                 prev.rev,
-                false,
+                // Re-adding a retired key with identical content still changes
+                // the covered set and must bump site_rev, but keeps the same rev.
+                !previous.entries.contains_key(url),
                 prev.modified.clone().unwrap_or_else(|| observed_at.clone()),
             ),
             Some(prev) => (prev.rev + 1, true, observed_at.clone()),
@@ -200,8 +211,16 @@ fn main() -> Result<()> {
     }
 
     let current_keys: HashSet<&String> = current_digests.keys().collect();
-    if previous.entries.keys().any(|k| !current_keys.contains(k)) {
+    let mut next_retired = previous.retired.clone();
+    for url in current_digests.keys() {
+        next_retired.remove(url);
+    }
+    for (url, prev_entry) in &previous.entries {
+        if current_keys.contains(url) {
+            continue;
+        }
         any_change = true;
+        next_retired.insert(url.clone(), prev_entry.clone());
     }
 
     if previous.coverage != coverage {
@@ -226,6 +245,7 @@ fn main() -> Result<()> {
         site_rev,
         coverage,
         entries: next_state_entries,
+        retired: next_retired,
     };
 
     write_json_atomic(&state_path, &next_state)?;

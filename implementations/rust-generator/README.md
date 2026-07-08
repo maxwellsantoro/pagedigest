@@ -7,6 +7,8 @@ Crate name: `pagedigest`. Installed binary: `pagedigest-generator`.
 - Scans an input directory for allowlisted content files (`.html`, `.htm`, `.md` by default).
 - Persists durable revision state (default: `<input_dir_parent>/.pagedigest/state.json`).
 - Increments per-URL `rev` on content changes; `site_rev` on any add/remove/change; never decreases.
+- Retains per-URL `rev` high-water marks in state `retired` when a URL leaves the
+  scan set so a later re-add cannot emit a lower `rev` (SPEC §4.1.1).
 - Maps `index.html` to `/` or `/section/` (`--index-style trailing-slash|file`).
 - Emits coverage metadata (see [Coverage](#coverage)).
 - Optionally emits stable per-entry `modified` timestamps (`--with-modified`).

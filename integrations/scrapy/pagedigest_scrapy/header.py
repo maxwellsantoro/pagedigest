@@ -7,6 +7,7 @@ begin with `/` and contain no fragment, quote, backslash, CR, or LF. A consumer
 MUST NOT send a site_rev it did not observe from that origin -- the caller is
 responsible for only passing an observed value.
 """
+
 from __future__ import annotations
 
 import re

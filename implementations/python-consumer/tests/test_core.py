@@ -309,9 +309,27 @@ class CoreTests(unittest.TestCase):
             "https://example.com/pricing?region=us",
         )
 
-    def test_resolve_url_key_rejects_origin_escape(self) -> None:
-        with self.assertRaisesRegex(ValueError, "url-key-origin-escape"):
+    def test_resolve_url_key_rejects_scheme_relative_key(self) -> None:
+        with self.assertRaisesRegex(ValueError, "invalid-url-key-scheme-relative"):
             resolve_url_key("https://example.com", "//127.0.0.1/admin")
+
+    def test_fetch_rejects_manifest_redirect(self) -> None:
+        response = StubResponse(status_code=302, headers={"Location": "https://evil.example/m.json"})
+        session = QueueSession([response])
+        out = fetch("https://example.com", session=session)
+        self.assertFalse(out.ok)
+        self.assertEqual(out.error, "manifest-redirect")
+        self.assertEqual(session.requests[0][1].get("allow_redirects"), False)
+
+    def test_fetch_passes_allow_redirects_false(self) -> None:
+        response = StubResponse(
+            status_code=200,
+            content=json.dumps(valid_manifest()).encode("utf-8"),
+        )
+        session = QueueSession([response])
+        out = fetch("https://example.com", session=session)
+        self.assertTrue(out.ok)
+        self.assertEqual(session.requests[0][1].get("allow_redirects"), False)
 
     def test_audit_does_not_request_embedded_absolute_url(self) -> None:
         session = StubSession(StubResponse(status_code=200, content=b"internal"))
@@ -379,9 +397,19 @@ class CoreTests(unittest.TestCase):
         self.assertFalse(out["ok"])
         self.assertEqual(out["error"], "manifest-unavailable")
 
-    def test_verifier_wrapper_preserves_old_base_url_cli_shape(self) -> None:
-        verifier_path = ROOT / "tools" / "verify_over_wire_digests.py"
-        self.assertTrue(verifier_path.exists())
+    def test_verify_live_rejects_negative_sample_size(self) -> None:
+        manifest = valid_manifest(entries={"/": {"rev": 1, "digest": "sha256:" + ("0" * 64)}})
+        session = StubSession(StubResponse(status_code=200, content=json.dumps(manifest).encode("utf-8")))
+        out = verify_live("https://example.com", sample_size=-1, session=session)
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["error"], "invalid-sample-size")
+
+    def test_verify_over_wire_wrapper_delegates_to_cli(self) -> None:
+        verifier = load_tool("verify_over_wire_digests")
+        with patch.object(verifier, "verify_live_main", return_value=0) as wrapped:
+            code = verifier.main()
+        self.assertEqual(code, 0)
+        wrapped.assert_called_once_with()
 
     def test_manifest_url_uses_origin_root_for_pathful_base_url_on_live_helper(self) -> None:
         self.assertEqual(
@@ -394,7 +422,7 @@ class CoreTests(unittest.TestCase):
         with patch.object(reconciler.requests, "get") as request:
             digest, error = reconciler.fetch_identity_digest("https://example.com", "//127.0.0.1/admin", 10)
         self.assertIsNone(digest)
-        self.assertEqual(error, "url-key-origin-escape")
+        self.assertEqual(error, "invalid-url-key-scheme-relative")
         request.assert_not_called()
 
     def test_diff_detects_changed_and_new_urls(self) -> None:
@@ -415,6 +443,44 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(result["new"], ["/new"])
         self.assertEqual(result["unchanged"], ["/same"])
         self.assertEqual(result["removed"], ["/old"])
+        self.assertEqual(result["fallback_urls"], [])
+
+    def test_diff_partial_coverage_does_not_surface_removed(self) -> None:
+        manifest = {
+            "version": 1,
+            "generated": "2026-04-17T12:00:00Z",
+            "site_rev": 11,
+            "coverage": {"mode": "prefixes", "prefixes": ["/blog/"]},
+            "entries": {"/blog/a": {"rev": 2}},
+        }
+        result = diff(manifest, cached_site_rev=10, cached_revs={"/blog/a": 1, "/other": 1})
+        self.assertEqual(result["removed"], [])
+        self.assertEqual(result["changed"], ["/blog/a"])
+
+    def test_diff_site_rev_equal_short_circuits(self) -> None:
+        manifest = {
+            "version": 1,
+            "generated": "2026-04-17T12:00:00Z",
+            "site_rev": 10,
+            "entries": {"/": {"rev": 99}, "/about": {"rev": 1}},
+        }
+        result = diff(manifest, cached_site_rev=10, cached_revs={"/": 1})
+        self.assertFalse(result["site_changed"])
+        self.assertEqual(result["changed"], [])
+        self.assertEqual(result["new"], [])
+        self.assertEqual(result["unchanged"], ["/", "/about"])
+
+    def test_diff_rev_decrease_lists_fallback_urls(self) -> None:
+        manifest = {
+            "version": 1,
+            "generated": "2026-04-17T12:00:00Z",
+            "site_rev": 11,
+            "entries": {"/": {"rev": 1}},
+        }
+        result = diff(manifest, cached_site_rev=10, cached_revs={"/": 3})
+        self.assertEqual(result["fallback_urls"], ["/"])
+        self.assertEqual(result["changed"], [])
+        self.assertTrue(any(a.get("reason") == "rev-decrease" for a in result["anomalies"]))
 
     def test_diff_flags_site_rev_decrease(self) -> None:
         manifest = {
@@ -429,6 +495,7 @@ class CoreTests(unittest.TestCase):
         result = diff(manifest, cached_site_rev=10, cached_revs={"/": 3})
         self.assertEqual(result.get("site_anomaly"), "site-rev-decrease")
         self.assertEqual(result["changed"], [])
+        self.assertEqual(result["fallback_urls"], [])
 
     def test_check_site_falls_back_on_site_rev_decrease(self) -> None:
         response = StubResponse(

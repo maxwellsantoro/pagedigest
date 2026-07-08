@@ -5,10 +5,11 @@ A [Scrapy](https://scrapy.org) downloader middleware that **consumes** a
 URLs whose `rev` hasn't changed since the last crawl, sends the optional
 cooperation header, and audits a fraction of skips against publisher digests.
 
-pagedigest has a publishing side and a spec, but no consumer — so nothing yet
-demonstrates the request reduction the protocol promises, or exercises the
-publisher-honesty side of the trust model. This is that missing half, against a
-real crawler.
+This is an experimental Scrapy adapter on top of the existing consumer
+ecosystem. The reference library is on PyPI (`pip install pagedigest`);
+integration notes live in
+[`docs/consumer-integration.md`](../../docs/consumer-integration.md). This
+package shows the same protocol decisions inside a real crawler framework.
 
 ## What it does, mapped to the spec
 
@@ -30,14 +31,16 @@ real crawler.
   trust by passing audits before you rely on its claims — addressing the
   first-contact gap the spec leaves to the consumer.
 - **Fallback is the default (§5.3, §4.1).** Missing manifest, bad JSON, missing
-  fields, unknown `version`, non-integer or **decreasing** `site_rev`/`rev`, or an
-  oversized (>10 MB) manifest all resolve to normal crawling. The middleware can
-  make a crawl slower-by-a-manifest-fetch, but never *wrong*.
+  fields, unknown `version`, non-integer or **decreasing** `site_rev`, malformed
+  coverage, or an oversized (>10 MB) manifest all resolve to normal crawling.
+  A per-URL `rev` decrease is treated as anomalous for that URL: the page is
+  fetched conventionally and the stored high-water `rev` is not lowered.
+  The middleware can make a crawl slower-by-a-manifest-fetch, but never *wrong*.
 
 ## Status
 
 This is an experimental consumer integration, not a published package yet. It is
-kept in-tree to make the consumer-side adoption path concrete and testable.
+kept in-tree to make the Scrapy adoption path concrete and testable.
 Offline decision-logic tests (`tests/test_offline.py`) run in
 `./tools/run_checks.sh` / CI; end-to-end Scrapy reactor demos stay manual.
 
@@ -88,15 +91,21 @@ downloader/request_count      0     # every page skipped; manifest said nothing 
 python tests/test_offline.py
 ```
 
-Seven reactor-free tests cover: no-manifest fallback, first-contact-then-skip,
-rev-bump refetch, `site_rev` monotonicity fallback, out-of-coverage passthrough,
-digest-mismatch detection, and site-distrust escalation.
+Reactor-free tests cover: no-manifest fallback, first-contact-then-skip,
+rev-bump refetch, per-URL rev-decrease high-water retention, `site_rev`
+monotonicity fallback, out-of-coverage passthrough, digest-mismatch detection,
+and site-distrust escalation.
 
 ## Notes & limits
 
-- The manifest is fetched with a short synchronous `requests` call and cached per
-  origin (TTL `PAGEDIGEST_MANIFEST_TTL`, default 300s). A high-throughput consumer
-  would prefetch manifests through the scheduler; the decision logic is unchanged.
+- The manifest is fetched with a short synchronous `requests` call (no redirects)
+  and cached per origin (TTL `PAGEDIGEST_MANIFEST_TTL`, default 300s). A
+  high-throughput consumer would prefetch manifests through the scheduler; the
+  decision logic is unchanged.
+- Absent coverage metadata is treated as **unspecified** (not `complete`):
+  omission is not "removed" and not "implicitly unchanged".
+- Prefix coverage uses ordinary string-prefix matching; publishers should list
+  trailing-slash prefixes (e.g. `/blog/`) to avoid sibling-path traps.
 - `bytes_saved_est` is the body size recorded when each URL was last fetched, so
   it's an estimate of avoided transfer, not a live measurement.
 - Trust state is per-origin and local. Cross-consumer / federated reputation is

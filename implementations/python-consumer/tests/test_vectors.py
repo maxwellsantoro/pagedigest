@@ -36,7 +36,13 @@ class VectorBundleTests(unittest.TestCase):
             )
 
     def test_semantic_fixture_pairs_pass_consumer_validation(self) -> None:
-        semantic_kinds = {"semantic-site-rev-bump", "semantic-rev-bump", "anomalous-sequence"}
+        semantic_kinds = {
+            "semantic-site-rev-bump",
+            "semantic-rev-bump",
+            "semantic-site-rev-equal",
+            "semantic-complete-removal",
+            "anomalous-sequence",
+        }
         for case in self.index["cases"]:
             if case["kind"] not in semantic_kinds:
                 continue
@@ -61,6 +67,36 @@ class VectorBundleTests(unittest.TestCase):
     def test_invalid_fragment_key_fails_validation(self) -> None:
         manifest = read_json(VECTORS / "invalid-url-key-fragment.json")
         self.assertEqual(validate_manifest(manifest), "invalid-url-key-pattern")
+
+    def test_invalid_scheme_relative_key_fails_validation(self) -> None:
+        manifest = read_json(VECTORS / "invalid-url-key-scheme-relative.json")
+        self.assertEqual(validate_manifest(manifest), "invalid-url-key-scheme-relative")
+
+    def test_invalid_digest_shape_fails_validation(self) -> None:
+        manifest = read_json(VECTORS / "invalid-digest-shape.json")
+        self.assertEqual(validate_manifest(manifest), "invalid-digest")
+
+    def test_site_rev_equal_short_circuit_vector(self) -> None:
+        prev = read_json(VECTORS / "site-rev-equal-short-circuit-prev.json")
+        nxt = read_json(VECTORS / "site-rev-equal-short-circuit-next.json")
+        result = diff(
+            nxt,
+            cached_site_rev=prev["site_rev"],
+            cached_revs={k: v["rev"] for k, v in prev["entries"].items()},
+        )
+        self.assertFalse(result["site_changed"])
+        self.assertEqual(result["changed"], [])
+        self.assertEqual(result["fallback_urls"], [])
+
+    def test_complete_removal_vector(self) -> None:
+        prev = read_json(VECTORS / "complete-removal-prev.json")
+        nxt = read_json(VECTORS / "complete-removal-next.json")
+        result = diff(
+            nxt,
+            cached_site_rev=prev["site_rev"],
+            cached_revs={k: v["rev"] for k, v in prev["entries"].items()},
+        )
+        self.assertEqual(result["removed"], ["/about"])
 
     def test_monotonicity_violation_surfaces_as_site_anomaly(self) -> None:
         prev = read_json(VECTORS / "violation-monotonicity-prev.json")
@@ -89,6 +125,7 @@ class VectorBundleTests(unittest.TestCase):
         )
         self.assertIsNone(result.get("site_anomaly"))
         self.assertTrue(any(a.get("reason") == "rev-decrease" for a in result.get("anomalies", [])))
+        self.assertIn("/docs/start", result.get("fallback_urls", []))
 
     def test_rollback_content_surfaces_as_changed(self) -> None:
         prev = read_json(VECTORS / "rollback-content-prev.json")

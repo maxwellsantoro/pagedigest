@@ -1,11 +1,15 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_OUTPUT = ".well-known/pagedigest.json";
 const DEFAULT_STATE = ".astro/pagedigest-state.json";
 const DEFAULT_EXTENSIONS = [".html", ".htm"];
+
+// Match the Rust generator's practical encode set for path segments
+// (controls, space, and selected reserved/specials; does not re-encode '%').
+const ENCODE_RE = /[\u0000-\u001f\u007f "#<>?`{}/\\]/g;
 
 function normalizeExtension(extension) {
   return extension.startsWith(".") ? extension.toLowerCase() : `.${extension.toLowerCase()}`;
@@ -41,18 +45,39 @@ function normalizeCoverage(coverage) {
   throw new Error("pagedigest coverage mode must be complete, prefixes, or false");
 }
 
-function urlKeyForHtml(relativePath) {
+function encodePathSegment(segment) {
+  return segment.replace(ENCODE_RE, (ch) => {
+    const bytes = Buffer.from(ch, "utf8");
+    let out = "";
+    for (const byte of bytes) {
+      out += `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+    }
+    return out;
+  });
+}
+
+function trailingSlashUrlKey(encodedRel) {
+  for (const indexName of ["index.html", "index.htm"]) {
+    if (encodedRel === indexName) {
+      return "/";
+    }
+    const suffix = `/${indexName}`;
+    if (encodedRel.endsWith(suffix)) {
+      return `/${encodedRel.slice(0, -suffix.length)}/`;
+    }
+  }
+  return `/${encodedRel}`;
+}
+
+export function urlKeyForHtml(relativePath) {
   const normalized = relativePath.replaceAll(path.sep, "/");
-  if (normalized === "index.html" || normalized === "index.htm") {
-    return "/";
+  const segments = normalized.split("/").map(encodePathSegment);
+  const encodedRel = segments.join("/");
+  const url = trailingSlashUrlKey(encodedRel);
+  if (!url.startsWith("/") || url.includes("#") || url.startsWith("//")) {
+    throw new Error(`invalid URL key derived from ${relativePath}`);
   }
-  if (normalized.endsWith("/index.html")) {
-    return `/${normalized.slice(0, -"index.html".length)}`;
-  }
-  if (normalized.endsWith("/index.htm")) {
-    return `/${normalized.slice(0, -"index.htm".length)}`;
-  }
-  return `/${normalized}`;
+  return url;
 }
 
 async function walkFiles(root, includeExtensions, outputPath) {
@@ -62,6 +87,10 @@ async function walkFiles(root, includeExtensions, outputPath) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const absolute = path.join(directory, entry.name);
       if (entry.isDirectory()) {
+        // Match Rust generator: never index anything under .well-known.
+        if (entry.name === ".well-known") {
+          continue;
+        }
         await visit(absolute);
         continue;
       }
@@ -69,6 +98,9 @@ async function walkFiles(root, includeExtensions, outputPath) {
         continue;
       }
       const relative = path.relative(root, absolute).replaceAll(path.sep, "/");
+      if (relative.split("/").includes(".well-known")) {
+        continue;
+      }
       if (relative !== outputPath && includeExtensions.has(path.extname(entry.name).toLowerCase())) {
         files.push({ absolute, relative });
       }
@@ -88,6 +120,7 @@ async function readState(statePath) {
         site_rev: Number.isInteger(parsed.site_rev) && parsed.site_rev >= 0 ? parsed.site_rev : 0,
         coverage: parsed.coverage,
         entries: typeof parsed.entries === "object" && parsed.entries !== null ? parsed.entries : {},
+        retired: typeof parsed.retired === "object" && parsed.retired !== null ? parsed.retired : {},
       };
     }
   } catch (error) {
@@ -95,7 +128,7 @@ async function readState(statePath) {
       throw error;
     }
   }
-  return { site_rev: 0, coverage: undefined, entries: {} };
+  return { site_rev: 0, coverage: undefined, entries: {}, retired: {} };
 }
 
 function sha256(buffer) {
@@ -110,6 +143,13 @@ function covered(urlKey, coverage) {
   return coverage?.mode !== "prefixes" || coverage.prefixes.some((prefix) => urlKey.startsWith(prefix));
 }
 
+async function writeJsonAtomic(filePath, value) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  const tempPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.tmp`);
+  await writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`);
+  await rename(tempPath, filePath);
+}
+
 export async function generateManifest(options) {
   const outputDir = path.resolve(options.outputDir);
   const outputPath = normalizeOutputPath(options.output ?? DEFAULT_OUTPUT);
@@ -122,6 +162,7 @@ export async function generateManifest(options) {
   const previous = await readState(statePath);
   const files = await walkFiles(outputDir, includeExtensions, outputPath);
   const nextEntries = {};
+  const seenKeys = new Map();
   let changed = changedCoverage(previous.coverage, coverage);
 
   for (const file of files) {
@@ -129,14 +170,25 @@ export async function generateManifest(options) {
     if (!covered(urlKey, coverage)) {
       continue;
     }
+    if (seenKeys.has(urlKey)) {
+      throw new Error(
+        `duplicate URL key ${urlKey} from ${file.relative} (also ${seenKeys.get(urlKey)})`,
+      );
+    }
+    seenKeys.set(urlKey, file.relative);
     const body = await readFile(file.absolute);
     const contentHash = sha256(body);
-    const previousEntry = previous.entries[urlKey];
-    const rev =
-      previousEntry && previousEntry.content_hash === contentHash
-        ? previousEntry.rev
-        : Math.max(1, (previousEntry?.rev ?? 0) + 1);
-    if (!previousEntry || previousEntry.content_hash !== contentHash) {
+    const previousEntry = previous.entries[urlKey] ?? previous.retired[urlKey];
+    const wasActive = Object.hasOwn(previous.entries, urlKey);
+    let rev;
+    if (previousEntry && previousEntry.content_hash === contentHash) {
+      rev = previousEntry.rev;
+      // Re-adding a retired key with identical content still changes coverage.
+      if (!wasActive) {
+        changed = true;
+      }
+    } else {
+      rev = Math.max(1, (previousEntry?.rev ?? 0) + 1);
       changed = true;
     }
     nextEntries[urlKey] = {
@@ -146,8 +198,20 @@ export async function generateManifest(options) {
     };
   }
 
-  if (Object.keys(previous.entries).some((urlKey) => !(urlKey in nextEntries))) {
+  // High-water marks for URLs that left the current scan set (SPEC §4.1.1).
+  const nextRetired = { ...previous.retired };
+  for (const urlKey of Object.keys(nextEntries)) {
+    delete nextRetired[urlKey];
+  }
+  for (const [urlKey, previousEntry] of Object.entries(previous.entries)) {
+    if (urlKey in nextEntries) {
+      continue;
+    }
     changed = true;
+    nextRetired[urlKey] = {
+      rev: previousEntry.rev,
+      content_hash: previousEntry.content_hash,
+    };
   }
 
   const siteRev = changed ? previous.site_rev + 1 : previous.site_rev;
@@ -170,13 +234,12 @@ export async function generateManifest(options) {
     site_rev: siteRev,
     coverage,
     entries: nextEntries,
+    ...(Object.keys(nextRetired).length > 0 ? { retired: nextRetired } : {}),
   };
 
   const manifestPath = path.join(outputDir, outputPath);
-  await mkdir(path.dirname(manifestPath), { recursive: true });
-  await mkdir(path.dirname(statePath), { recursive: true });
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-  await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`);
+  await writeJsonAtomic(manifestPath, manifest);
+  await writeJsonAtomic(statePath, state);
   return { manifest, manifestPath, statePath };
 }
 

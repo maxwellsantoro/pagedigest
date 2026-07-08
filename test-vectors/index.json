@@ -52,6 +52,16 @@
       "kind": "invalid-spec"
     },
     {
+      "id": "invalid-url-key-scheme-relative",
+      "file": "invalid-url-key-scheme-relative.json",
+      "kind": "invalid-spec"
+    },
+    {
+      "id": "invalid-digest-shape",
+      "file": "invalid-digest-shape.json",
+      "kind": "invalid-spec"
+    },
+    {
       "id": "violation-monotonicity",
       "files": [
         "violation-monotonicity-prev.json",
@@ -66,6 +76,22 @@
         "rollback-content-next.json"
       ],
       "kind": "semantic-rev-bump"
+    },
+    {
+      "id": "site-rev-equal-short-circuit",
+      "files": [
+        "site-rev-equal-short-circuit-prev.json",
+        "site-rev-equal-short-circuit-next.json"
+      ],
+      "kind": "semantic-site-rev-equal"
+    },
+    {
+      "id": "complete-removal",
+      "files": [
+        "complete-removal-prev.json",
+        "complete-removal-next.json"
+      ],
+      "kind": "semantic-complete-removal"
     },
     {
       "id": "audit-match",

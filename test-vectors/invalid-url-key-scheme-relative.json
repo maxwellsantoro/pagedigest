@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "generated": "2026-04-17T12:00:00Z",
+  "site_rev": 1,
+  "entries": {
+    "//evil.example/foo": {
+      "rev": 1
+    }
+  }
+}

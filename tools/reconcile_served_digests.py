@@ -121,6 +121,16 @@ def main() -> int:
             "digests for unstable URLs. Without this flag the tool only reports."
         ),
     )
+    parser.add_argument(
+        "--bump-site-rev",
+        action="store_true",
+        help=(
+            "When rewriting with --apply, also increment site_rev so consumers "
+            "that short-circuit on equal site_rev re-process entry digests. "
+            "Digest-only corrections do not require a site_rev bump under the "
+            "SPEC, but some audit caches only refresh when site_rev moves."
+        ),
+    )
     parser.add_argument("--timeout", type=int, default=15, help="HTTP timeout seconds")
     parser.add_argument(
         "--max-bytes",
@@ -129,9 +139,11 @@ def main() -> int:
         help="Abort identity fetches larger than this many bytes",
     )
     args = parser.parse_args()
+    if args.bump_site_rev and not args.apply:
+        raise SystemExit("--bump-site-rev requires --apply")
 
     manifest_path = Path(args.manifest)
-    manifest = json.loads(manifest_path.read_text())
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(manifest, dict):
         raise SystemExit(f"{manifest_path} must contain a JSON object")
     if (validation_error := validate_manifest(manifest)) is not None:
@@ -181,9 +193,17 @@ def main() -> int:
             .isoformat()
             .replace("+00:00", "Z")
         )
-        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+        if args.bump_site_rev:
+            site_rev = manifest.get("site_rev")
+            if not isinstance(site_rev, int) or isinstance(site_rev, bool):
+                raise SystemExit(f"{manifest_path} has invalid site_rev")
+            manifest["site_rev"] = site_rev + 1
+        manifest_path.write_text(
+            json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+        )
+        note = " (site_rev bumped)" if args.bump_site_rev else ""
         print(
-            f"rewrote {manifest_path} (redeploy the manifest to publish the corrections)"
+            f"rewrote {manifest_path}{note} (redeploy the manifest to publish the corrections)"
         )
 
     # Non-zero when problems remain unapplied, so this can gate a deploy.

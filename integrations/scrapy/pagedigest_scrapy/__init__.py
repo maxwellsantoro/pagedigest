@@ -6,4 +6,5 @@ against the publisher's sha256 digests. Cardinal rule from the spec: a missing,
 malformed, stale, or dishonest manifest must never make crawling worse than it
 would be with no manifest at all.
 """
+
 from .middleware import PageDigestMiddleware  # noqa: F401

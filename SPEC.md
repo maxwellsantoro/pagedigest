@@ -127,6 +127,8 @@ If present, `coverage.mode` MUST be one of:
 
 If `coverage.mode` is `prefixes`, the `coverage.prefixes` array MUST be present and contain one or more strings that each begin with `/`.
 
+Publishers SHOULD list prefixes that end with `/` (for example `/blog/` rather than `/blog`) so that ordinary string-prefix matching does not accidentally cover sibling paths such as `/blogextra`. Consumers that implement prefix coverage SHOULD document whether they use raw `startswith` matching; the recommended convention is that a prefix applies to paths that begin with the prefix string as written.
+
 ### 3.2 Entry fields
 
 Each value in the `entries` map is an object with the following fields:
@@ -219,6 +221,8 @@ A rollback to previously published content is still a content change event and t
 ### 4.1.1 Publisher implementation note
 
 Revision state is durable protocol state. Publishers should persist a high-water mark for `site_rev` and per-URL `rev` outside fragile CI/build numbering.
+
+When a URL leaves the covered set (unpublished page, coverage filter change), the publisher SHOULD retain that URL's last `rev` in durable state even though it is omitted from the next manifest. Re-adding the same key later MUST NOT emit a lower `rev` than previously published for that key.
 
 Restores from backup, rebases, environment reseeds, or build-system counter resets can silently violate monotonicity if not handled deliberately.
 
@@ -344,7 +348,10 @@ PageDigest-State: site_rev=18294; manifest="/.well-known/pagedigest.json"
 The grammar for the reserved version 1 form is:
 
 ```abnf
-PageDigest-State = "site_rev=" 1*DIGIT [ "; manifest=" DQUOTE absolute-path DQUOTE ]
+non-zero-digit   = %x31-39
+site-rev-value   = "0" / ( non-zero-digit *DIGIT )
+PageDigest-State = "site_rev=" site-rev-value
+                   [ "; manifest=" DQUOTE absolute-path DQUOTE ]
 ```
 
 Leading zeroes are not allowed except for the value `0`. The `manifest` value MUST begin with `/`, MUST NOT contain a fragment, quote, backslash, carriage return, or line feed, and is not an absolute URL. Consumers MUST NOT send a revision they did not observe from the named origin. Publishers MUST treat an absent or malformed header as no cooperation signal; it does not make the page request invalid.
@@ -440,6 +447,7 @@ Invalid examples:
 - `about` (missing leading `/`)
 - `/foo#bar` (contains a fragment)
 - `https://example.com/foo` (absolute URL; keys are origin-relative)
+- `//evil.example/foo` (scheme-relative / network-path reference; keys must not carry an authority)
 - `/foo?utm_source=x` when the query is a non-material tracking variant that the publisher should omit
 - `/posts/hello world` (raw space must be percent-encoded)
 

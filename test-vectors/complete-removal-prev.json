@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "generated": "2026-04-17T12:00:00Z",
+  "site_rev": 4,
+  "coverage": {
+    "mode": "complete"
+  },
+  "entries": {
+    "/": { "rev": 2 },
+    "/about": { "rev": 1 }
+  }
+}

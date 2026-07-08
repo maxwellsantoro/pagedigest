@@ -14,6 +14,7 @@ keep this reference implementation legible. A high-throughput consumer would
 prefetch manifests through the scheduler instead; the decision logic here is
 unchanged by that.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -42,9 +43,11 @@ class PageDigestMiddleware:
         self.manifest_ttl = settings.getfloat("PAGEDIGEST_MANIFEST_TTL", 300.0)
         self.max_bytes = settings.getint("PAGEDIGEST_MAX_MANIFEST_BYTES", M.MAX_BYTES)
         self.send_header = settings.getbool("PAGEDIGEST_SEND_HEADER", True)
-        self.site_distrust_threshold = settings.getint("PAGEDIGEST_SITE_DISTRUST_THRESHOLD", 3)
+        self.site_distrust_threshold = settings.getint(
+            "PAGEDIGEST_SITE_DISTRUST_THRESHOLD", 3
+        )
         self._session = requests.Session()
-        self._cache = {}   # origin -> (Manifest|None, fetched_at)
+        self._cache = {}  # origin -> (Manifest|None, fetched_at)
         self._rng = random.Random(settings.getint("PAGEDIGEST_SEED", 0) or None)
 
     @classmethod
@@ -69,7 +72,9 @@ class PageDigestMiddleware:
 
         if self.send_header:
             try:
-                request.headers["PageDigest-State"] = header.build(man.site_rev, man.manifest_path)
+                request.headers["PageDigest-State"] = header.build(
+                    man.site_rev, man.manifest_path
+                )
             except ValueError:
                 pass
 
@@ -85,17 +90,30 @@ class PageDigestMiddleware:
 
         cached_rev, cached_size = self.store.get_rev(origin, path)
         # stash for process_response regardless of branch
-        request.meta["pagedigest"] = {"origin": origin, "path": path,
-                                       "rev": entry.rev, "digest": entry.digest}
+        request.meta["pagedigest"] = {
+            "origin": origin,
+            "path": path,
+            "rev": entry.rev,
+            "digest": entry.digest,
+        }
 
-        changed = cached_rev is None or entry.rev != cached_rev
+        # SPEC §5.1: per-URL rev decrease is anomalous — fetch conventionally
+        # and do not rewrite the stored high-water mark downward.
+        if cached_rev is not None and entry.rev < cached_rev:
+            request.meta["pagedigest"]["rev_anomaly"] = True
+            self.stats.inc_value("pagedigest/rev_decrease")
+            return None
+
+        changed = cached_rev is None or entry.rev > cached_rev
         if changed or self.store.is_url_suspect(origin, path):
             return None  # must fetch: new, changed, or under suspicion
 
         # unchanged & trusted -> skip, unless selected for audit
         if entry.digest and self._audit_now(origin):
             request.meta["pagedigest_audit"] = True
-            request.headers["Accept-Encoding"] = "identity"  # spec 3.2: hash identity bytes
+            request.headers["Accept-Encoding"] = (
+                "identity"  # spec 3.2: hash identity bytes
+            )
             self.stats.inc_value("pagedigest/audits")
             return None  # deliberately spend this request to verify honesty
 
@@ -116,8 +134,14 @@ class PageDigestMiddleware:
                 self.stats.inc_value("pagedigest/audit_ok")
                 self.store.clear_url_suspect(meta["origin"], meta["path"])
 
+        # Never lower a stored per-URL rev (SPEC §4.1 / §5.1 anomaly path).
+        if meta.get("rev_anomaly"):
+            return response
+
         # record the freshly observed rev + size for next run's comparison
-        self.store.set_rev(meta["origin"], meta["path"], meta["rev"], len(response.body))
+        self.store.set_rev(
+            meta["origin"], meta["path"], meta["rev"], len(response.body)
+        )
         return response
 
     # ---- helpers ----
@@ -140,7 +164,11 @@ class PageDigestMiddleware:
 
     def _audit_now(self, origin) -> bool:
         first_seen = self.store.get_site(origin)[1] or time.time()
-        rate = self.bootstrap_rate if (time.time() - first_seen) < BOOTSTRAP_WINDOW_S else self.audit_rate
+        rate = (
+            self.bootstrap_rate
+            if (time.time() - first_seen) < BOOTSTRAP_WINDOW_S
+            else self.audit_rate
+        )
         return self._rng.random() < rate
 
     def _on_mismatch(self, origin, path):
@@ -157,8 +185,9 @@ class PageDigestMiddleware:
         saved = self.stats.get_value("pagedigest/bytes_saved_est", 0)
         spider.logger.info(
             f"[pagedigest] skipped {skipped} unchanged fetches "
-            f"(~{saved} bytes saved), audits={self.stats.get_value('pagedigest/audits',0)}, "
-            f"mismatches={self.stats.get_value('pagedigest/audit_mismatch',0)}")
+            f"(~{saved} bytes saved), audits={self.stats.get_value('pagedigest/audits', 0)}, "
+            f"mismatches={self.stats.get_value('pagedigest/audit_mismatch', 0)}"
+        )
         self.store.close()
 
     # bytes-saved accounting lives here so IgnoreRequest stays a one-liner

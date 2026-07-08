@@ -13,7 +13,9 @@ Requires Python ≥3.9. Runtime dependency: `requests`.
 ## API
 
 - `fetch` — fetch and validate manifest; graceful fallback on errors
-- `diff` — compare manifest to cached `site_rev` / per-URL `rev`
+- `diff` — compare manifest to cached `site_rev` / per-URL `rev`. Crawl
+  `changed` + `new` + `fallback_urls` (rev-decrease anomalies); do not treat
+  anomaly URLs as skippable
 - `audit` — identity-encoding digest check (streams the body with a size cap)
 - `check_site` — `fetch` + `diff` + optional sampled audit plan
 - `verify_live` — fetch a manifest and sample live identity-encoded responses for digest verification

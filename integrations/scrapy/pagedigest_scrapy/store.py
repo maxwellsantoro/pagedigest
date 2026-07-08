@@ -2,6 +2,7 @@
 state persistence is not optional -- it's the substrate the whole protocol runs
 on. SQLite keeps it dependency-free and survivable across runs.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -30,21 +31,24 @@ class Store:
 
     # -- per-URL rev + size --
     def get_rev(self, origin: str, url: str):
-        row = self.db.execute("SELECT rev, size FROM rev WHERE origin=? AND url=?",
-                              (origin, url)).fetchone()
+        row = self.db.execute(
+            "SELECT rev, size FROM rev WHERE origin=? AND url=?", (origin, url)
+        ).fetchone()
         return row if row else (None, 0)
 
     def set_rev(self, origin: str, url: str, rev: int, size: int = 0):
         self.db.execute(
             "INSERT INTO rev(origin,url,rev,size) VALUES(?,?,?,?) "
             "ON CONFLICT(origin,url) DO UPDATE SET rev=excluded.rev, size=excluded.size",
-            (origin, url, rev, size))
+            (origin, url, rev, size),
+        )
         self.db.commit()
 
     # -- site rev + first-contact timestamp (for bootstrap auditing) --
     def get_site(self, origin: str):
-        row = self.db.execute("SELECT site_rev, first_seen FROM site WHERE origin=?",
-                              (origin,)).fetchone()
+        row = self.db.execute(
+            "SELECT site_rev, first_seen FROM site WHERE origin=?", (origin,)
+        ).fetchone()
         return row if row else (None, None)
 
     def set_site(self, origin: str, site_rev: int):
@@ -52,37 +56,49 @@ class Store:
         self.db.execute(
             "INSERT INTO site(origin,site_rev,first_seen) VALUES(?,?,?) "
             "ON CONFLICT(origin) DO UPDATE SET site_rev=excluded.site_rev",
-            (origin, site_rev, seen))
+            (origin, site_rev, seen),
+        )
         self.db.commit()
 
     # -- trust --
     def trust_state(self, origin: str) -> str:
-        row = self.db.execute("SELECT state FROM trust WHERE origin=?", (origin,)).fetchone()
+        row = self.db.execute(
+            "SELECT state FROM trust WHERE origin=?", (origin,)
+        ).fetchone()
         return row[0] if row else TRUSTED
 
     def set_trust(self, origin: str, state: str):
         self.db.execute(
             "INSERT INTO trust(origin,state,clean_windows) VALUES(?,?,0) "
             "ON CONFLICT(origin) DO UPDATE SET state=excluded.state",
-            (origin, state))
+            (origin, state),
+        )
         self.db.commit()
 
     def mark_url_suspect(self, origin: str, url: str):
-        self.db.execute("INSERT OR IGNORE INTO url_suspect(origin,url) VALUES(?,?)",
-                        (origin, url))
+        self.db.execute(
+            "INSERT OR IGNORE INTO url_suspect(origin,url) VALUES(?,?)", (origin, url)
+        )
         self.db.commit()
 
     def is_url_suspect(self, origin: str, url: str) -> bool:
-        return self.db.execute("SELECT 1 FROM url_suspect WHERE origin=? AND url=?",
-                              (origin, url)).fetchone() is not None
+        return (
+            self.db.execute(
+                "SELECT 1 FROM url_suspect WHERE origin=? AND url=?", (origin, url)
+            ).fetchone()
+            is not None
+        )
 
     def clear_url_suspect(self, origin: str, url: str):
-        self.db.execute("DELETE FROM url_suspect WHERE origin=? AND url=?", (origin, url))
+        self.db.execute(
+            "DELETE FROM url_suspect WHERE origin=? AND url=?", (origin, url)
+        )
         self.db.commit()
 
     def count_url_suspects(self, origin: str) -> int:
-        return self.db.execute("SELECT COUNT(*) FROM url_suspect WHERE origin=?",
-                              (origin,)).fetchone()[0]
+        return self.db.execute(
+            "SELECT COUNT(*) FROM url_suspect WHERE origin=?", (origin,)
+        ).fetchone()[0]
 
     def close(self):
         self.db.close()

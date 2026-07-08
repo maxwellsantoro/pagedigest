@@ -18,7 +18,8 @@
     },
     "generated": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "$comment": "Schema date-time is looser than SPEC: timestamps MUST be UTC. Consumers apply SPEC text."
     },
     "site_rev": {
       "type": "integer",
@@ -94,7 +95,8 @@
         },
         "modified": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "$comment": "Schema date-time is looser than SPEC: timestamps MUST be UTC. Consumers apply SPEC text."
         }
       }
     }

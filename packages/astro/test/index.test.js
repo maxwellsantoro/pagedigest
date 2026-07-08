@@ -87,6 +87,87 @@ test("prefix coverage filters generated entries", async () => {
   }
 });
 
+test("rejects duplicate URL keys from index.html and index.htm", async () => {
+  const root = await fixture();
+  try {
+    const out = path.join(root, "dist");
+    const state = path.join(root, "state.json");
+    await mkdir(out, { recursive: true });
+    await writeFile(path.join(out, "index.html"), "html\n", "utf8");
+    await writeFile(path.join(out, "index.htm"), "htm\n", "utf8");
+    await assert.rejects(
+      () => generateManifest({ outputDir: out, statePath: state, generated: "2026-07-04T00:00:00Z" }),
+      /duplicate URL key/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("skips .well-known files and retains rev high-water after removal", async () => {
+  const root = await fixture();
+  try {
+    const out = path.join(root, "dist");
+    const state = path.join(root, "state.json");
+    await mkdir(path.join(out, ".well-known"), { recursive: true });
+    await writeFile(path.join(out, "index.html"), "one\n", "utf8");
+    await writeFile(path.join(out, ".well-known", "other.html"), "secret\n", "utf8");
+
+    const first = await generateManifest({
+      outputDir: out,
+      statePath: state,
+      generated: "2026-07-04T00:00:00Z",
+    });
+    assert.deepEqual(Object.keys(first.manifest.entries), ["/"]);
+    assert.equal(first.manifest.entries["/"].rev, 1);
+
+    await writeFile(path.join(out, "index.html"), "two\n", "utf8");
+    await generateManifest({
+      outputDir: out,
+      statePath: state,
+      generated: "2026-07-04T00:01:00Z",
+    });
+
+    await rm(path.join(out, "index.html"));
+    const removed = await generateManifest({
+      outputDir: out,
+      statePath: state,
+      generated: "2026-07-04T00:02:00Z",
+    });
+    assert.deepEqual(Object.keys(removed.manifest.entries), []);
+    const stateJson = JSON.parse(await readFile(state, "utf8"));
+    assert.equal(stateJson.retired["/"].rev, 2);
+
+    await writeFile(path.join(out, "index.html"), "two\n", "utf8");
+    const restored = await generateManifest({
+      outputDir: out,
+      statePath: state,
+      generated: "2026-07-04T00:03:00Z",
+    });
+    assert.equal(restored.manifest.entries["/"].rev, 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("percent-encodes spaces in path segments", async () => {
+  const root = await fixture();
+  try {
+    const out = path.join(root, "dist");
+    const state = path.join(root, "state.json");
+    await mkdir(out, { recursive: true });
+    await writeFile(path.join(out, "hello world.html"), "hi\n", "utf8");
+    const result = await generateManifest({
+      outputDir: out,
+      statePath: state,
+      generated: "2026-07-04T00:00:00Z",
+    });
+    assert.deepEqual(Object.keys(result.manifest.entries), ["/hello%20world.html"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("integration exposes Astro build hooks", () => {
   const integration = pagedigest();
   assert.equal(integration.name, "@pagedigest/astro");
