@@ -1,7 +1,7 @@
 # pagedigest Specification
 
 **Version:** 1
-**Status:** Release Candidate
+**Status:** Final (v1.0)
 
 ## Abstract
 

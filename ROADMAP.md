@@ -1,12 +1,10 @@
 # Roadmap
 
-**Now:** v1 RC — stable wire format, in-repo reference implementations, dogfood on [pagedigest.org](https://pagedigest.org).
+**Now:** v1.0 — stable wire format, shipped reference implementations and packages, dogfood on [pagedigest.org](https://pagedigest.org). Gates: [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
 
-**Next:** v1.0 — distribution, integrations, IANA filings. Gates: [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
+**Next:** Post-1.0 reserved work and adoption (additional SSGs, measured consumers, IANA short-form `rel` when assigned). See [Post-1.0](#post-10-reserved).
 
-The cross-project execution order is trust hygiene first, then the v1 spec
-clarifications (`PageDigest-State`, prior-art, and audit economics), measured
-dotrepo dogfood, agent consumption, and only then broad distribution.
+The cross-project execution order that got us here was trust hygiene first, then the v1 spec clarifications (`PageDigest-State`, prior-art, and audit economics), measured dotrepo dogfood, agent consumption, and then broad distribution.
 
 ## Phase 1 — Public RC
 
@@ -15,7 +13,7 @@ dotrepo dogfood, agent consumption, and only then broad distribution.
 | Pre-public docs/tests polish | done |
 | Tag `v1.0.0-rc.1` | done — released 2026-07-02 |
 | Adopter feedback channel (Issues/Discussions) | done — [v1 RC feedback issue](https://github.com/maxwellsantoro/pagedigest/issues/1) |
-| RC announcement | draft ready — [docs/announcements/v1-rc.md](./docs/announcements/v1-rc.md) |
+| RC announcement | done — [docs/announcements/v1-rc.md](./docs/announcements/v1-rc.md) published on site at [/announcements/v1-rc/](https://pagedigest.org/announcements/v1-rc/) |
 | Prior-art comparison on README/site/spec | done |
 | Reserve optional `PageDigest-State` + vectors | done |
 | Audit-economics failure-scope guidance | done |
@@ -42,7 +40,7 @@ Canonical matrix: [README.md § Version matrix](./README.md#version-matrix).
 | Producer case study ([dotrepo](./docs/case-studies/dotrepo.md), [template](./docs/DOGFOOD_TEMPLATE.md)) | done — first measured case study |
 | Hygiene checker utility | done — `tools/check_content_hygiene.py` |
 | Generator: per-entry `modified` fields | done — stable observed-content timestamps via `--with-modified` |
-| Hugo / Eleventy / Jekyll plugins | P2 — copy Astro retired-rev + URL-key encoding + conformance smoke pattern |
+| Hugo / Eleventy / Jekyll plugins | deferred — Post-1.0; copy Astro retired-rev + URL-key encoding + conformance smoke pattern |
 
 Publisher pipeline: build → generate manifest → deploy → `reconcile_served_digests.py --apply` → verify. Details: [CONTENT_HYGIENE.md](./CONTENT_HYGIENE.md). Generators remind on `--with-digest` / default Astro digests.
 
@@ -53,21 +51,27 @@ Publisher pipeline: build → generate manifest → deploy → `reconcile_served
 | Consumer integration write-up | done |
 | Reference sample (cache persistence) | done — atomic state and bounded body cache with failure tests |
 | Live digest verification CLI (`pagedigest verify-live`) | done |
-| Scrapy consumer middleware | experimental — [integrations/scrapy](./integrations/scrapy/); uses reference `pagedigest` validate/header; offline tests gated in CI; not published to PyPI |
+| Scrapy consumer middleware | done (experimental in-tree) — [integrations/scrapy](./integrations/scrapy/); uses reference `pagedigest` validate/header; offline tests gated in CI; PyPI publish deferred to Post-1.0 |
 
 ## Phase 5 — Standards registration
 
-Requests filed from [docs/registrations/](./docs/registrations/):
-[well-known URI](https://github.com/protocol-registries/well-known-uris/issues/98)
-and [link relation](https://github.com/protocol-registries/link-relations/issues/73).
-Update docs when the short-form `rel` is accepted.
+| Task | Status |
+|------|--------|
+| Well-known URI suffix registration | done — filed ([issue #98](https://github.com/protocol-registries/well-known-uris/issues/98)); docs reflect extension-URI discovery |
+| Link relation registration | done — filed ([issue #73](https://github.com/protocol-registries/link-relations/issues/73)); v1.0 ships with `rel="https://pagedigest.org/rel"` |
+| Short-form IANA `rel` token | deferred — update examples when assigned (not a v1.0 blocker; see [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)) |
+
+Drafts remain in [docs/registrations/](./docs/registrations/).
 
 ## Phase 6 — v1.0
 
-All [1.0 Gate](./RELEASE_CHECKLIST.md#10-gate) items checked → tag `v1.0.0`, update README status.
-Short-form IANA `rel` is **not** a hard blocker: v1.0 may ship with the
-extension relation URI if registration is still pending (update docs when the
-short token lands).
+| Task | Status |
+|------|--------|
+| All hard [1.0 Gate](./RELEASE_CHECKLIST.md#10-gate) items | done |
+| README / ROADMAP / SPEC primary status → v1.0 | done |
+| Tag `v1.0.0` | done — local annotated tag on the status-ship commit (implementation package semver stays 0.x until a separate package release) |
+
+Short-form IANA `rel` remains optional follow-up, not a v1.0 blocker.
 
 ## Post-1.0 (reserved)
 
@@ -75,13 +79,14 @@ The v1.1 extension will finalize `PageDigest-State` intermediary semantics using
 lessons from measured consumers. Manifest sharding, content extracts, DNS
 discovery, and additional hash algorithms remain reserved; see [SPEC.md](./SPEC.md) §6.
 
-### Explicitly deferred engineering
-
-| Item | Why deferred |
-|------|----------------|
-| mypy/pyright in CI | Consumer is annotated and unit-tested; static typing is optional polish |
-| Atomic Worker observation counters | KV get-then-put is best-effort metrics only (documented in `site/_worker.js`) |
-| Pure-JS Windows unzip | System `tar.exe` is standard on modern Windows; documented in `packages/cli` |
+| Item | Disposition |
+|------|-------------|
+| Hugo / Eleventy / Jekyll plugins | P2 publisher path; reuse Astro conformance pattern |
+| Scrapy middleware on PyPI | Graduate from experimental when a maintainer is ready |
+| Short-form IANA `rel` examples | Flip docs when the token is assigned |
+| mypy/pyright in CI | Optional polish; consumer is annotated and unit-tested |
+| Atomic Worker observation counters | KV get-then-put is best-effort metrics only (`site/_worker.js`) |
+| Pure-JS Windows unzip | System `tar.exe` is standard on modern Windows (`packages/cli`) |
 
 ## Contribute
 

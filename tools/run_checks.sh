@@ -71,8 +71,11 @@ uv run --with 'Scrapy>=2.11' --with 'requests>=2.31' \
   --with-editable "${ROOT_DIR}/implementations/python-consumer" \
   python tests/test_offline.py
 
-echo "[14/14] checking dogfood manifest in sync with site/"
+echo "[14/15] checking dogfood manifest in sync with site/"
 cd "${ROOT_DIR}"
 uv run --project "${PYTHON_CONSUMER_DIR}" --locked python "${ROOT_DIR}/tools/check_dogfood_manifest.py"
+
+echo "[15/15] checking v1.0 status disposition"
+uv run --project "${PYTHON_CONSUMER_DIR}" --locked python "${ROOT_DIR}/tools/check_v1_status.py"
 
 echo "all checks passed"

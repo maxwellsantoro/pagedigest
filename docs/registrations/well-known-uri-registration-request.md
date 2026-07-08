@@ -31,7 +31,7 @@ PageDigest project / Maxwell Santoro
 
 Provisional.
 
-The PageDigest wire format is currently a v1 release candidate. The project
+The PageDigest wire format is final at version 1 (v1.0). The project
 would like expert review before v1.0 and before claiming permanent status.
 
 ## Purpose

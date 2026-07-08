@@ -1,6 +1,10 @@
 # PageDigest v1 release candidate
 
-PageDigest v1 is now in release-candidate status.
+> **Historical.** This was the v1 RC announcement. Protocol status is now
+> **v1.0** (see [README.md](../../README.md) and [ROADMAP.md](../../ROADMAP.md)).
+> The live page remains at [/announcements/v1-rc/](https://pagedigest.org/announcements/v1-rc/).
+
+PageDigest v1 entered release-candidate status with this note.
 
 PageDigest is a one-file change-detection protocol for public websites. A
 publisher serves a manifest at `/.well-known/pagedigest.json` with a monotonic

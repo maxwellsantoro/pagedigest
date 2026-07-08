@@ -2,6 +2,8 @@
 
 Objective gates for v1 RC and v1.0. Execution order and priorities: [ROADMAP.md](./ROADMAP.md).
 
+**Protocol status:** v1.0 (hard 1.0 Gate items below are checked). Short-form IANA `rel` remains an optional docs follow-up.
+
 ## Pre-Freeze Clarifications (v1 RC Text)
 
 - [x] URL-key comparison rule is explicit: pre-redirect request URL, byte-exact key matching.
@@ -54,7 +56,7 @@ Objective gates for v1 RC and v1.0. Execution order and priorities: [ROADMAP.md]
 - [x] Experimental Scrapy consumer offline tests gated in `./tools/run_checks.sh` (package still unpublished / experimental; shares reference `validate_manifest` / state header).
 - [x] Generator↔Astro static-HTML conformance smoke gated in `./tools/run_checks.sh`.
 
-## Discovery (RC guidance)
+## Discovery (v1.0)
 
 ```http
 Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"

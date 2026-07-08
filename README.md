@@ -63,22 +63,22 @@ and [deployment recipes](./docs/cooperative-automation.md).
 
 ## Status
 
-**v1 release candidate** — wire format stable at `/.well-known/pagedigest.json`. Discovery uses `Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"` until IANA registration completes. Version 1 reserves `PageDigest-State` as optional client behavior; full intermediary semantics remain a planned v1.1 extension.
+**v1.0** — wire format stable at `/.well-known/pagedigest.json`. Discovery uses `Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"` until IANA assigns a short-form relation token (extension URI is valid v1.0 discovery). Version 1 reserves `PageDigest-State` as optional client behavior; full intermediary semantics remain a planned v1.1 extension.
 
 Reference implementations ship in this repo, and the Astro integration is
 available from npm. Generator binaries ship through GitHub Releases, and the
 generator is installable through Cargo or `npx`; the consumer ships on PyPI.
-See [ROADMAP.md](./ROADMAP.md). RC adopters should not expect breaking field or
-semantics changes before v1.0. Please report adoption feedback in
-[the v1 RC feedback issue](https://github.com/maxwellsantoro/pagedigest/issues/1).
+See [ROADMAP.md](./ROADMAP.md). Please report adoption feedback in
+[the feedback issue](https://github.com/maxwellsantoro/pagedigest/issues/1).
 
 ### Version matrix
 
 | Component | Version / tag | Notes |
 |-----------|---------------|--------|
-| Spec wire field `version` | `1` | RC; stays `1` until a breaking protocol change |
+| Spec wire field `version` | `1` | Final v1.0 protocol; stays `1` until a breaking protocol change |
+| Protocol release tag | `v1.0.0` | Spec/status milestone; independent of package semver |
 | `pagedigest-generator` / `npx pagedigest` / crates.io `pagedigest` | `0.2.0` | Publisher CLI |
-| Python consumer (PyPI `pagedigest`) | `0.1.0` | RC-stable API; semver is independent of the generator |
+| Python consumer (PyPI `pagedigest`) | `0.1.0` | v1.0-compatible API; semver is independent of the generator |
 | `@pagedigest/astro` | `0.1.0` | Static HTML subset of the generator |
 | Scrapy middleware | experimental in-tree | Depends on consumer `>=0.1.0`; not on PyPI |
 
