@@ -51,16 +51,17 @@ tool is read-only and exits non-zero on findings, so it can gate a deploy.
 
 ## Practical pipeline pattern
 
-Recommended order:
+Copy-paste default path (also on the [README](./README.md#publisher-pipeline-default-path)):
 
 1. Render site to final deployable artifacts.
-2. Ensure final output is deterministic for content-bearing pages.
-3. Generate `pagedigest` from rendered output.
+2. Optional: `python tools/check_content_hygiene.py ./site-dist --fail-on warning`.
+3. Generate `pagedigest` from rendered output (`--with-digest` when you want audits).
 4. Deploy pages and manifest atomically (or pages first, then manifest).
 5. Reconcile against served bytes
    (`tools/reconcile_served_digests.py <manifest> --base-url <origin> --apply`)
    and redeploy the manifest if it changed — this absorbs CDN/edge rewrites
    without disabling any host feature.
+6. Sample live audits: `pagedigest verify-live <origin>`.
 
 ## Digest reliability note
 
@@ -85,6 +86,9 @@ python tools/check_content_hygiene.py ./site-dist
 
 By default, warnings are informational and only hard errors fail the command.
 Use `--fail-on warning` to make likely churn hazards a deployment gate.
+Repository dogfood (`site/`) is gated at `--fail-on warning` in
+`./tools/run_checks.sh`. Protocol manifests at `.well-known/pagedigest.json`
+are not flagged for their required `generated` timestamp.
 
 ## If you cannot make bytes stable
 

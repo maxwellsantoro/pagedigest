@@ -66,6 +66,22 @@ class ContentHygieneTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("volatile-build-timestamp", stdout.getvalue())
 
+    def test_protocol_manifest_generated_is_not_content_churn(self) -> None:
+        checker = load_tool("check_content_hygiene")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            well_known = root / ".well-known"
+            well_known.mkdir()
+            (well_known / "pagedigest.json").write_text(
+                '{\n  "version": 1,\n  "generated": "2026-07-04T04:42:38Z",\n  "site_rev": 1,\n  "entries": {}\n}\n',
+                encoding="utf-8",
+            )
+            (root / "index.html").write_text("<h1>ok</h1>\n", encoding="utf-8")
+
+            findings = checker.check_tree(root)
+
+        self.assertEqual(findings, [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -19,8 +19,11 @@ Quick orientation for AI agents working in this repo. **Do not duplicate normati
 ```
 implementations/rust-generator/   # Publisher CLI (pagedigest-generator)
 implementations/python-consumer/  # Consumer library (fetch, diff, audit, check_site)
+packages/astro/                   # SSG integration (static HTML subset)
+packages/cli/                     # npx launcher for release binaries
+integrations/scrapy/              # Experimental Scrapy consumer (CI offline tests)
 test-vectors/                     # Conformance fixtures; index in index.json
-tools/                            # validate_vectors, smoke test, reconcile, verify
+tools/                            # validate_vectors, smokes, reconcile, verify, hygiene
 site/                             # Dogfood static site + emitted manifest
 site-state/                       # Committed generator state for dogfood only
 docs/                             # Ecosystem, templates, IANA drafts, archive

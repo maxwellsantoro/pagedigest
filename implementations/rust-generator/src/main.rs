@@ -338,6 +338,19 @@ fn encode_path_segment(segment: &str) -> String {
     utf8_percent_encode(segment, PATH_SEGMENT_ENCODE_SET).to_string()
 }
 
+fn trailing_slash_url_key(encoded_rel: &str) -> String {
+    for index_name in ["index.html", "index.htm"] {
+        if encoded_rel == index_name {
+            return "/".to_string();
+        }
+        let suffix = format!("/{index_name}");
+        if let Some(prefix) = encoded_rel.strip_suffix(suffix.as_str()) {
+            return format!("/{prefix}/");
+        }
+    }
+    format!("/{encoded_rel}")
+}
+
 fn rel_to_url_key(rel: &Path, index_style: IndexStyle) -> Result<String> {
     let rel_str = rel.to_string_lossy().replace('\\', "/");
     let segments: Vec<&str> = rel_str.split('/').collect();
@@ -349,15 +362,7 @@ fn rel_to_url_key(rel: &Path, index_style: IndexStyle) -> Result<String> {
 
     let url = match index_style {
         IndexStyle::File => format!("/{encoded_rel}"),
-        IndexStyle::TrailingSlash => {
-            if encoded_rel == "index.html" {
-                "/".to_string()
-            } else if encoded_rel.ends_with("/index.html") {
-                format!("/{}/", encoded_rel.trim_end_matches("/index.html"))
-            } else {
-                format!("/{encoded_rel}")
-            }
-        }
+        IndexStyle::TrailingSlash => trailing_slash_url_key(&encoded_rel),
     };
 
     if !url.starts_with('/') || url.contains('#') {
@@ -456,6 +461,15 @@ mod tests {
                 .expect("url key"),
             "/about/"
         );
+        assert_eq!(
+            rel_to_url_key(Path::new("index.htm"), IndexStyle::TrailingSlash).expect("url key"),
+            "/"
+        );
+        assert_eq!(
+            rel_to_url_key(Path::new("docs/index.htm"), IndexStyle::TrailingSlash)
+                .expect("url key"),
+            "/docs/"
+        );
     }
 
     #[test]
@@ -471,10 +485,46 @@ mod tests {
     }
 
     #[test]
-    fn rel_to_url_key_percent_encodes_spaces() {
+    fn rel_to_url_key_percent_encodes_spaces_and_specials() {
         assert_eq!(
             rel_to_url_key(Path::new("hello world.html"), IndexStyle::File).expect("url key"),
             "/hello%20world.html"
+        );
+        assert_eq!(
+            rel_to_url_key(Path::new("a\"b.html"), IndexStyle::File).expect("url key"),
+            "/a%22b.html"
+        );
+        assert_eq!(
+            rel_to_url_key(Path::new("q?x.html"), IndexStyle::File).expect("url key"),
+            "/q%3Fx.html"
+        );
+    }
+
+    #[test]
+    fn collect_digests_empty_tree_is_empty() {
+        let dir = tempdir().expect("tempdir");
+        let include_ext = vec!["html".to_string()];
+        let digests = collect_digests(dir.path(), IndexStyle::TrailingSlash, &include_ext)
+            .expect("collect digests");
+        assert!(digests.is_empty());
+    }
+
+    #[test]
+    fn collect_digests_detects_url_key_collision() {
+        let dir = tempdir().expect("tempdir");
+        let root = dir.path();
+        // Literal space encodes to %20; a filename that already contains %20
+        // is left as-is for that segment and collides with the encoded form.
+        fs::write(root.join("hello world.html"), b"a").expect("write spaced name");
+        fs::write(root.join("hello%20world.html"), b"b").expect("write pre-encoded name");
+
+        let include_ext = vec!["html".to_string()];
+        let result = collect_digests(root, IndexStyle::File, &include_ext);
+        assert!(result.is_err());
+        let message = format!("{:#}", result.unwrap_err());
+        assert!(
+            message.contains("duplicate URL key"),
+            "unexpected error: {message}"
         );
     }
 

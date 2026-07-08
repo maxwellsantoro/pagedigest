@@ -51,7 +51,7 @@ Publisher pipeline: build → generate manifest → deploy → `reconcile_served
 | Consumer integration write-up | done |
 | Reference sample (cache persistence) | done — atomic state and bounded body cache with failure tests |
 | Live digest verification CLI (`pagedigest verify-live`) | done |
-| Scrapy consumer middleware | experimental — [integrations/scrapy](./integrations/scrapy/) proves stateful skip/audit behavior |
+| Scrapy consumer middleware | experimental — [integrations/scrapy](./integrations/scrapy/); offline tests gated in CI; not published to PyPI |
 
 ## Phase 5 — Standards registration
 

@@ -1,13 +1,13 @@
 {
-  "site_rev": 6,
+  "site_rev": 7,
   "coverage": {
     "mode": "complete"
   },
   "entries": {
     "/": {
-      "rev": 6,
-      "digest": "3ab69491ca2e44b7ea9ddca06b75d77850d29116031d9828116b61ece5021f08",
-      "modified": "2026-07-04T04:42:38Z"
+      "rev": 7,
+      "digest": "6a2c00ce7517b933e6a532bbd0d90055df043e3b8bba395ad364105a75725b42",
+      "modified": "2026-07-08T21:56:34Z"
     },
     "/404.html": {
       "rev": 1,

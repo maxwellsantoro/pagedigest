@@ -49,6 +49,8 @@ Objective gates for v1 RC and v1.0. Execution order and priorities: [ROADMAP.md]
 - [x] At least one consumer integration publicly documented.
 - [x] Hygiene checker utility shipped (or explicitly deferred with issue).
 - [x] At least one SSG plugin shipped ([Astro on npm](https://www.npmjs.com/package/@pagedigest/astro)).
+- [x] Experimental Scrapy consumer offline tests gated in `./tools/run_checks.sh` (package still unpublished / experimental).
+- [x] Generator↔Astro static-HTML conformance smoke gated in `./tools/run_checks.sh`.
 
 ## Discovery (RC guidance)
 

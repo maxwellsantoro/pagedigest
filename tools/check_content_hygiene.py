@@ -101,9 +101,17 @@ def check_path_shape(root: Path, path: Path) -> list[Finding]:
     return findings
 
 
+def is_protocol_manifest(rel: str) -> bool:
+    """Manifest ``generated`` is required protocol metadata, not page-content churn."""
+    return rel == ".well-known/pagedigest.json" or rel.endswith(
+        "/.well-known/pagedigest.json"
+    )
+
+
 def check_text(root: Path, path: Path, text: str) -> list[Finding]:
     rel = relative_path(root, path)
     findings: list[Finding] = []
+    skip_volatile_timestamps = is_protocol_manifest(rel)
     for line_number, line in enumerate(text.splitlines(), start=1):
         if "mailto:" in line:
             findings.append(
@@ -125,7 +133,9 @@ def check_text(root: Path, path: Path, text: str) -> list[Finding]:
                     "Cloudflare /cdn-cgi/ marker appears in output; verify this is not host-injected churn.",
                 )
             )
-        if GENERATED_PHRASE.search(line) or VOLATILE_TIMESTAMP.search(line):
+        if not skip_volatile_timestamps and (
+            GENERATED_PHRASE.search(line) or VOLATILE_TIMESTAMP.search(line)
+        ):
             findings.append(
                 Finding(
                     "warning",

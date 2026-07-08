@@ -38,6 +38,8 @@ real crawler.
 
 This is an experimental consumer integration, not a published package yet. It is
 kept in-tree to make the consumer-side adoption path concrete and testable.
+Offline decision-logic tests (`tests/test_offline.py`) run in
+`./tools/run_checks.sh` / CI; end-to-end Scrapy reactor demos stay manual.
 
 ## Install & enable
 

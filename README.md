@@ -76,6 +76,30 @@ Live dogfood: [pagedigest.org](https://pagedigest.org). Source: [github.com/maxw
 
 ## Install and use
 
+### Publisher pipeline (default path)
+
+Digests are over **served** identity-encoded bytes. Generate from final build
+output, then reconcile after deploy so CDN/edge rewrites do not poison audits:
+
+```bash
+# 1) Build → final static output in ./site-dist
+# 2) Generate (example: release binary; see install options below)
+./pagedigest-generator ./site-dist --with-digest
+
+# 3) Deploy pages + manifest (atomic if possible; else pages first, then manifest)
+
+# 4) Reconcile digests to live responses (absorb stable CDN transforms; drop unstable ones)
+python tools/reconcile_served_digests.py ./site-dist/.well-known/pagedigest.json \
+  --base-url https://example.com --apply
+# Redeploy the manifest if it changed.
+
+# 5) Sample live audits
+pagedigest verify-live https://example.com --sample-size 25
+```
+
+Optional pre-generate churn scan: `python tools/check_content_hygiene.py ./site-dist`.
+Full rationale and failure modes: [CONTENT_HYGIENE.md](./CONTENT_HYGIENE.md).
+
 ### Publisher — release binary
 
 Download the archive for Linux, macOS, or Windows from the
@@ -83,16 +107,16 @@ Download the archive for Linux, macOS, or Windows from the
 extract it, then run:
 
 ```bash
-./pagedigest-generator ./site-dist
+./pagedigest-generator ./site-dist --with-digest
 ```
 
 The generator writes `site-dist/.well-known/pagedigest.json` and persists
-revision state between builds.
+revision state between builds. Continue with steps 3–5 of the pipeline above.
 
 ### Publisher — npm
 
 ```bash
-npx pagedigest ./site-dist
+npx pagedigest ./site-dist --with-digest
 ```
 
 The launcher verifies the released generator archive against a pinned SHA-256
@@ -102,18 +126,16 @@ digest before caching and executing it.
 
 ```bash
 cargo install pagedigest
-pagedigest-generator ./site-dist
+pagedigest-generator ./site-dist --with-digest
 ```
 
 ### Publisher — run from source
 
 ```bash
-cargo run --manifest-path implementations/rust-generator/Cargo.toml -- ./site-dist
+cargo run --manifest-path implementations/rust-generator/Cargo.toml -- ./site-dist --with-digest
 ```
 
 Writes `site-dist/.well-known/pagedigest.json` and persists revision state. See [implementations/rust-generator/README.md](./implementations/rust-generator/README.md) for flags (`--with-digest`, `--with-modified`, `--index-style`, state path).
-
-Publishers using digests should follow the post-deploy pipeline in [CONTENT_HYGIENE.md](./CONTENT_HYGIENE.md).
 
 ### Consumer — PyPI
 
@@ -137,13 +159,14 @@ print(check_site('https://example.com', cached_site_rev=1, cached_revs={'/': 1})
 
 API: `fetch`, `diff`, `audit`, `check_site`. See [implementations/python-consumer/README.md](./implementations/python-consumer/README.md).
 
-### Consumer — Scrapy middleware prototype
+### Consumer — Scrapy middleware (experimental)
 
 An experimental Scrapy downloader middleware lives in
 [integrations/scrapy](./integrations/scrapy/). It consumes a PageDigest manifest
 before page fetches, skips URLs whose `rev` is unchanged from durable crawl
 state, sends `PageDigest-State`, and samples digest audits so a real crawler can
-measure request reduction without changing the protocol.
+measure request reduction without changing the protocol. Offline decision-logic
+tests run in CI; the package is not published to PyPI yet.
 
 ### Astro integration
 
@@ -151,7 +174,10 @@ measure request reduction without changing the protocol.
 npm install @pagedigest/astro
 ```
 
-Configuration and options: [packages/astro](./packages/astro/).
+Static HTML output only (default extensions `.html` / `.htm`); trailing-slash
+index keys match the generator default for plain ASCII paths. For full
+percent-encoding / Markdown allowlists, use the Rust generator. Configuration:
+[packages/astro](./packages/astro/).
 
 ## Quality gates
 
@@ -159,7 +185,9 @@ Configuration and options: [packages/astro](./packages/astro/).
 ./tools/run_checks.sh
 ```
 
-Includes conformance vectors (`test-vectors/`), consumer unit tests, generator tests, and revision-progression smoke test. CI mirrors this workflow.
+Includes conformance vectors (`test-vectors/`), consumer unit tests, generator
+tests, revision-progression and generator↔Astro conformance smokes, Scrapy
+offline tests, and dogfood hygiene/sync checks. CI mirrors this workflow.
 
 Publisher tooling also includes `tools/check_content_hygiene.py` (pre-generate churn scan), `tools/reconcile_served_digests.py` (post-deploy digest convergence), and `pagedigest verify-live` (live audit sampling; `tools/verify_over_wire_digests.py` remains as a compatibility wrapper). Consumer guidance lives in [docs/consumer-integration.md](./docs/consumer-integration.md).
 
