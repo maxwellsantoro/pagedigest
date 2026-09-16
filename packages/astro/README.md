@@ -45,7 +45,7 @@ This package covers the **static HTML subset** of the publisher path:
 |----------|---------------------|------------------------|
 | Default extensions | `.html`, `.htm` | `.html`, `.htm`, `.md`, `.markdown` |
 | Index URL keys | Trailing-slash only (`about/index.html` → `/about/`) | `--index-style trailing-slash\|file` |
-| Path percent-encoding | Encodes spaces and selected reserved characters | Same practical encode set |
+| Path percent-encoding | UTF-8 percent-encoding of filesystem path segments | Same encoding |
 | `.well-known` tree | Skipped entirely | Skipped entirely |
 | URL-key collisions | Hard error | Hard error |
 | State / manifest writes | Atomic temp + rename | Atomic temp + sync + rename |
@@ -56,7 +56,7 @@ This package covers the **static HTML subset** of the publisher path:
 
 Use the Rust generator (or `npx pagedigest`) when you need Markdown entries or
 file-style index keys (`--index-style file`). CI runs
-`tools/smoke_generator_astro_conformance.py` on the shared ASCII HTML subset so
+`tools/smoke_generator_astro_conformance.py` on the shared HTML subset, including Unicode and escaped filenames so
 the two stay aligned for that matrix.
 
 Keep the state file durable between builds. If it is deleted on every CI run,

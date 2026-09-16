@@ -35,6 +35,13 @@ class VectorBundleTests(unittest.TestCase):
                 msg=f"{case['id']} should pass validate_manifest",
             )
 
+    def test_encoded_filename_keys_remain_distinct_in_diff(self) -> None:
+        manifest = read_json(VECTORS / "url-key-variants.json")
+        result = diff(manifest, None, {"/hello%20world.html": 1})
+        self.assertIn("/hello%20world.html", result["unchanged"])
+        self.assertIn("/hello%2520world.html", result["new"])
+        self.assertIn("/caf%C3%A9/", result["new"])
+
     def test_semantic_fixture_pairs_pass_consumer_validation(self) -> None:
         semantic_kinds = {
             "semantic-site-rev-bump",

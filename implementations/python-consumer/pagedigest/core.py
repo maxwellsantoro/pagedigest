@@ -355,6 +355,8 @@ def fetch(
             )
 
         return FetchResult(True, r.status_code, manifest, r.headers.get("ETag"), r.headers.get("Last-Modified"), None)
+    except requests.RequestException as exc:
+        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), str(exc))
     finally:
         close = getattr(r, "close", None)
         if callable(close):
@@ -424,6 +426,8 @@ def fetch_manifest_url(
             )
 
         return FetchResult(True, r.status_code, manifest, r.headers.get("ETag"), r.headers.get("Last-Modified"), None)
+    except requests.RequestException as exc:
+        return FetchResult(False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), str(exc))
     finally:
         close = getattr(r, "close", None)
         if callable(close):
@@ -554,6 +558,8 @@ def audit(
         if computed == expected_digest:
             return {"result": "match", "computed": computed}
         return {"result": "mismatch", "computed": computed, "expected": expected_digest}
+    except requests.RequestException as exc:
+        return {"result": "inconclusive", "reason": "network-error", "error": str(exc)}
     finally:
         close = getattr(r, "close", None)
         if callable(close):

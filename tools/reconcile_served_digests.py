@@ -26,6 +26,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import stat
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +37,53 @@ import requests
 from pagedigest import identity_digest, resolve_url_key, validate_manifest
 
 MAX_AUDIT_BYTES = 10 * 1024 * 1024
+
+
+def write_json_atomic(path: Path, value: dict) -> None:
+    """Replace one artifact without exposing partial JSON."""
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", dir=path.parent, delete=False
+        ) as temp:
+            temp_path = Path(temp.name)
+            # Existing manifests may be served directly by another user/process.
+            os.chmod(temp_path, stat.S_IMODE(path.stat().st_mode))
+            temp.write(json.dumps(value, indent=2) + "\n")
+            temp.flush()
+            os.fsync(temp.fileno())
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
+def load_publisher_state(path: Path, manifest: dict) -> dict:
+    """Require the Rust or Astro state belonging to this manifest generation."""
+    state = json.loads(path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(state, dict)
+        or type(state.get("site_rev")) is not int
+        or state["site_rev"] != manifest["site_rev"]
+        or state.get("coverage") != manifest.get("coverage")
+        or not isinstance(state.get("entries"), dict)
+        or set(state["entries"]) != set(manifest["entries"])
+    ):
+        raise SystemExit(
+            "publisher state does not match the manifest; regenerate before reconciling"
+        )
+    for key, entry in state["entries"].items():
+        if (
+            not isinstance(entry, dict)
+            or type(entry.get("rev")) is not int
+            or entry["rev"] != manifest["entries"][key]["rev"]
+            or not isinstance(entry.get("content_hash", entry.get("digest")), str)
+        ):
+            raise SystemExit(f"publisher state has an invalid entry for {key}")
+    # Stay representable by either generator, including JavaScript's safe integers.
+    if not 0 <= state["site_rev"] < 2**53 - 1:
+        raise SystemExit("publisher site_rev cannot be safely incremented")
+    return state
 
 
 @dataclass
@@ -68,6 +118,8 @@ def fetch_identity_digest(
             return None, f"non-success:{r.status_code}"
         digest, error = identity_digest(r, max_bytes)
         return digest, error if error else "ok"
+    except requests.RequestException as exc:
+        return None, f"network-error: {exc}"
     finally:
         r.close()
 
@@ -114,6 +166,11 @@ def main() -> int:
     parser.add_argument("manifest", help="Path to the local manifest to reconcile")
     parser.add_argument("--base-url", required=True, help="Deployed site base URL")
     parser.add_argument(
+        "--state",
+        type=Path,
+        help="Rust or Astro publisher state (required with --bump-site-rev)",
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help=(
@@ -141,6 +198,12 @@ def main() -> int:
     args = parser.parse_args()
     if args.bump_site_rev and not args.apply:
         raise SystemExit("--bump-site-rev requires --apply")
+    if args.bump_site_rev and args.state is None:
+        raise SystemExit(
+            "--bump-site-rev requires --state to preserve durable revision state"
+        )
+    if args.state is not None and not args.bump_site_rev:
+        raise SystemExit("--state requires --bump-site-rev")
 
     manifest_path = Path(args.manifest)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -151,6 +214,11 @@ def main() -> int:
     entries = manifest.get("entries")
     if not isinstance(entries, dict):
         raise SystemExit(f"{manifest_path} has no entries object")
+    state = None
+    if args.state is not None:
+        if args.state.resolve() == manifest_path.resolve():
+            raise SystemExit("publisher state and manifest must be different files")
+        state = load_publisher_state(args.state, manifest)
 
     results: list[Reconciliation] = []
     for path, entry in entries.items():
@@ -194,13 +262,13 @@ def main() -> int:
             .replace("+00:00", "Z")
         )
         if args.bump_site_rev:
-            site_rev = manifest.get("site_rev")
-            if not isinstance(site_rev, int) or isinstance(site_rev, bool):
-                raise SystemExit(f"{manifest_path} has invalid site_rev")
-            manifest["site_rev"] = site_rev + 1
-        manifest_path.write_text(
-            json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
-        )
+            assert state is not None
+            manifest["site_rev"] += 1
+            state["site_rev"] = manifest["site_rev"]
+            # Reserve the high-water mark before publishing it. If the manifest
+            # write fails, a subsequent build still cannot reuse an older revision.
+            write_json_atomic(args.state, state)
+        write_json_atomic(manifest_path, manifest)
         note = " (site_rev bumped)" if args.bump_site_rev else ""
         print(
             f"rewrote {manifest_path}{note} (redeploy the manifest to publish the corrections)"

@@ -24,9 +24,14 @@ in [`docs/consumer-integration.md`](../../docs/consumer-integration.md).
 - **Digest audit (§5.2).** With probability `PAGEDIGEST_AUDIT_RATE` (default 1%),
   a skip-eligible URL is fetched instead with `Accept-Encoding: identity`, hashed,
   and compared to the manifest `digest`. A mismatch marks the URL suspect.
+  Redirects and HTTP errors are inconclusive and do not change trust. Only
+  successful page responses establish cached revisions.
 - **Containment ladder (§5.2).** Repeated mismatches across enough URLs escalate
   from URL-level suspicion to a site-level trust downgrade, after which the origin
-  is no longer trusted for skipping until it re-earns it.
+  is no longer trusted for skipping until it re-earns it. Forced fetches of suspect
+  URLs and distrusted origins audit any available digest without sampling. A clean
+  audit clears that URL's suspicion; the origin recovers when all suspect URLs
+  have passed a clean audit. URLs without digests continue to fall back.
 - **Cold-start hardening.** For the first hour with a new origin the audit rate
   is raised (`PAGEDIGEST_BOOTSTRAP_AUDIT_RATE`, default 25%), so a publisher earns
   trust by passing audits before you rely on its claims — addressing the

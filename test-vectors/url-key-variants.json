@@ -14,6 +14,21 @@
     },
     "/posts/hello%20world": {
       "rev": 3
+    },
+    "/caf%C3%A9/": {
+      "rev": 1
+    },
+    "/100%25.html": {
+      "rev": 1
+    },
+    "/a%5Bb%5D.html": {
+      "rev": 1
+    },
+    "/hello%20world.html": {
+      "rev": 1
+    },
+    "/hello%2520world.html": {
+      "rev": 1
     }
   }
 }

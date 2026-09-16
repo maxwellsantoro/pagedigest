@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import requests
+
 from pagedigest.core import (
     audit,
     check_site,
@@ -101,6 +103,46 @@ def valid_manifest(**overrides: Any) -> dict[str, Any]:
     }
     manifest.update(overrides)
     return manifest
+
+
+class BrokenStreamResponse(StubResponse):
+    def __init__(self, error):
+        super().__init__(200)
+        self.error = error
+
+    def iter_content(self, chunk_size=65536):
+        yield b"partial"
+        raise self.error
+
+
+class StreamFailureTests(unittest.TestCase):
+    def test_stream_failures_fall_back_and_close_response(self):
+        for error_type in (
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ContentDecodingError,
+        ):
+            for operation in ("fetch", "fetch_manifest_url", "check_site", "audit", "reconcile"):
+                with self.subTest(error=error_type.__name__, operation=operation):
+                    response = BrokenStreamResponse(error_type("interrupted body"))
+                    session = StubSession(response)
+                    if operation == "fetch":
+                        self.assertFalse(fetch("https://example.com", session=session).ok)
+                    elif operation == "fetch_manifest_url":
+                        self.assertFalse(fetch_manifest_url("https://example.com/manifest", session=session).ok)
+                    elif operation == "check_site":
+                        self.assertTrue(check_site("https://example.com", None, {}, session=session)["fallback"])
+                    elif operation == "audit":
+                        result = audit("https://example.com", "/", "sha256:" + "0" * 64, session=session)
+                        self.assertEqual(result["result"], "inconclusive")
+                        self.assertEqual(result["reason"], "network-error")
+                    else:
+                        tool = load_tool("reconcile_served_digests")
+                        with patch.object(tool.requests, "get", return_value=response):
+                            digest, detail = tool.fetch_identity_digest("https://example.com", "/", 10)
+                        self.assertIsNone(digest)
+                        self.assertIn("network-error", detail)
+                    self.assertTrue(response.closed)
 
 
 class CoreTests(unittest.TestCase):

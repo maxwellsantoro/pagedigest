@@ -7,9 +7,8 @@ const DEFAULT_OUTPUT = ".well-known/pagedigest.json";
 const DEFAULT_STATE = ".astro/pagedigest-state.json";
 const DEFAULT_EXTENSIONS = [".html", ".htm"];
 
-// Match the Rust generator's practical encode set for path segments
-// (controls, space, and selected reserved/specials; does not re-encode '%').
-const ENCODE_RE = /[\u0000-\u001f\u007f "#<>?`{}/\\]/g;
+// RFC 3986 path-segment characters. Percent signs in filenames are literal.
+const ENCODE_RE = /[^A-Za-z0-9._~!$&'()*+,;=:@-]/gu;
 
 function normalizeExtension(extension) {
   return extension.startsWith(".") ? extension.toLowerCase() : `.${extension.toLowerCase()}`;

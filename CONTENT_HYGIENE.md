@@ -93,8 +93,17 @@ did not change, only the audit surface.
 Consumers that short-circuit on equal `site_rev` will not re-read the entry map
 until the next content-driven bump, so their cached digests may lag until then.
 If your consumer pipeline only refreshes digests when `site_rev` moves, pass
-`--bump-site-rev` with `--apply`, or re-audit digests out of band
-(`pagedigest verify-live`).
+`--bump-site-rev --state <publisher-state.json>` with `--apply`, or re-audit
+digests out of band (`pagedigest verify-live`). The state must be the durable
+Rust or Astro state used to generate that manifest. Reconciliation verifies
+matching revisions and reserves the new `site_rev` in state before replacing
+the manifest, so subsequent builds retain the high-water mark. Run generation
+and reconciliation serially. If a write fails after state advances, regenerate
+before retrying reconciliation.
+
+The dogfood CI guard compares build hashes against committed generator state
+and checks manifest revisions and coverage. Served digests may differ or be
+omitted after reconciliation; use live verification to check those claims.
 
 ## Digest reliability note
 

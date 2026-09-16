@@ -58,8 +58,12 @@ class PageDigestMiddleware:
 
     # ---- request path ----
     def process_request(self, request, spider):
-        if request.method != "GET" or request.meta.get("pagedigest_audit"):
-            return None  # never intercept our own audit fetches
+        # Redirects and retries copy metadata; decide again for this request URL.
+        if request.meta.pop("pagedigest", None) is not None:
+            request.headers.pop("PageDigest-State", None)
+        request.meta.pop("pagedigest_audit", None)
+        if request.method != "GET":
+            return None
         parts = urlsplit(request.url)
         origin = f"{parts.scheme}://{parts.netloc}"
         path = parts.path or "/"
@@ -84,9 +88,9 @@ class PageDigestMiddleware:
         if entry is None:
             return None  # covered prefix but not listed -> no protocol treatment
 
-        if self.store.trust_state(origin) == SITE_DISTRUSTED:
+        distrusted = self.store.trust_state(origin) == SITE_DISTRUSTED
+        if distrusted:
             self.stats.inc_value("pagedigest/fallback_distrusted")
-            return None  # earn trust back before we skip anything again
 
         cached_rev, cached_size = self.store.get_rev(origin, path)
         # stash for process_response regardless of branch
@@ -105,17 +109,23 @@ class PageDigestMiddleware:
             return None
 
         changed = cached_rev is None or entry.rev > cached_rev
-        if changed or self.store.is_url_suspect(origin, path):
-            return None  # must fetch: new, changed, or under suspicion
+        recovering = distrusted or self.store.is_url_suspect(origin, path)
+        if changed and not recovering:
+            return None  # must fetch new or changed content
 
         # unchanged & trusted -> skip, unless selected for audit
-        if entry.digest and self._audit_now(origin):
+        if entry.digest and (recovering or self._audit_now(origin)):
             request.meta["pagedigest_audit"] = True
+            # Audit the listed URL, never a redirect target's body.
+            request.meta["dont_redirect"] = True
             request.headers["Accept-Encoding"] = (
                 "identity"  # spec 3.2: hash identity bytes
             )
             self.stats.inc_value("pagedigest/audits")
             return None  # deliberately spend this request to verify honesty
+
+        if recovering:
+            return None  # no digest available to re-establish trust
 
         self._record_skip(origin, path, cached_size)
         raise IgnoreRequest(f"pagedigest: {path} unchanged at rev {entry.rev}")
@@ -126,13 +136,25 @@ class PageDigestMiddleware:
         if not meta:
             return response
 
+        if response.status < 200 or response.status >= 300:
+            if request.meta.get("pagedigest_audit"):
+                self.stats.inc_value("pagedigest/audit_inconclusive")
+            return response  # failed fetches cannot establish a cached revision
+
         if request.meta.get("pagedigest_audit") and meta["digest"]:
             got = "sha256:" + hashlib.sha256(response.body).hexdigest()
             if got != meta["digest"]:
                 self._on_mismatch(meta["origin"], meta["path"])
+                return response
             else:
                 self.stats.inc_value("pagedigest/audit_ok")
                 self.store.clear_url_suspect(meta["origin"], meta["path"])
+                if (
+                    self.store.trust_state(meta["origin"]) == SITE_DISTRUSTED
+                    and self.store.count_url_suspects(meta["origin"]) == 0
+                ):
+                    self.store.set_trust(meta["origin"], TRUSTED)
+                    self.stats.inc_value("pagedigest/site_recovered")
 
         # Never lower a stored per-URL rev (SPEC §4.1 / §5.1 anomaly path).
         if meta.get("rev_anomaly"):

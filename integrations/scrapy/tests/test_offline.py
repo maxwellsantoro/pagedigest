@@ -236,6 +236,134 @@ def test_site_distrust_escalation():
     print("ok: repeated mismatches escalate to site distrust + fallback")
 
 
+def test_http_errors_do_not_cache_revisions_or_block_retries():
+    for status in (301, 404, 429, 500, 503):
+        for previous_rev in (None, 2):
+            m = make_mw(":memory:")
+            set_manifest(manifest_bytes(10, {"/a": {"rev": 3}}))
+            if previous_rev is not None:
+                m.store.set_rev(ORIGIN, "/a", previous_rev)
+            r = req()
+            m.process_request(r, None)
+            m.process_response(
+                r, Response(r.url, status=status, body=b"error", request=r), None
+            )
+            assert m.store.get_rev(ORIGIN, "/a")[0] == previous_rev
+            retry = r.copy()
+            assert m.process_request(retry, None) is None
+            m.process_response(retry, resp(retry), None)
+            assert m.store.get_rev(ORIGIN, "/a")[0] == 3
+            try:
+                m.process_request(req(), None)
+                assert False, "successful retry should establish revision"
+            except IgnoreRequest:
+                pass
+            m.store.close()
+    print("ok: HTTP failures leave revisions unchanged and retries fetch")
+
+
+def test_audit_http_errors_are_inconclusive():
+    for status in (301, 404, 429, 500):
+        m = make_mw(":memory:", pagedigest_bootstrap_audit_rate=1.0)
+        set_manifest(
+            manifest_bytes(10, {"/a": {"rev": 3, "digest": "sha256:" + "0" * 64}})
+        )
+        m.store.set_rev(ORIGIN, "/a", 3, 100)
+        r = req()
+        m.process_request(r, None)
+        assert r.meta["dont_redirect"]
+        m.process_response(
+            r, Response(r.url, status=status, body=b"error", request=r), None
+        )
+        assert m.stats.get_value("pagedigest/audit_inconclusive") == 1
+        assert m.stats.get_value("pagedigest/audit_mismatch", 0) == 0
+        assert not m.store.is_url_suspect(ORIGIN, "/a")
+        assert m.store.get_rev(ORIGIN, "/a") == (3, 100)
+        m.store.close()
+    print("ok: audit redirects and errors are inconclusive")
+
+
+def test_suspect_url_recovers_from_clean_forced_fetch():
+    m = make_mw(":memory:", pagedigest_bootstrap_audit_rate=1.0)
+    digest = "sha256:" + hashlib.sha256(b"good").hexdigest()
+    set_manifest(manifest_bytes(10, {"/a": {"rev": 3, "digest": digest}}))
+    m.store.set_rev(ORIGIN, "/a", 3)
+    r = req()
+    m.process_request(r, None)
+    m.process_response(r, resp(r, b"bad"), None)
+    assert m.store.is_url_suspect(ORIGIN, "/a")
+    m.bootstrap_rate = 0.0
+    r = req()
+    m.process_request(r, None)
+    assert r.meta["pagedigest_audit"]  # recovery does not depend on sample rate
+    m.process_response(r, resp(r, b"good"), None)
+    assert not m.store.is_url_suspect(ORIGIN, "/a")
+    try:
+        m.process_request(req(), None)
+        assert False, "recovered URL should skip"
+    except IgnoreRequest:
+        pass
+    m.store.close()
+    print("ok: suspect URL recovers through a clean forced fetch")
+
+
+def test_site_recovers_only_after_all_suspect_urls_pass():
+    m = make_mw(
+        ":memory:",
+        pagedigest_bootstrap_audit_rate=1.0,
+        pagedigest_site_distrust_threshold=2,
+    )
+    digest = "sha256:" + hashlib.sha256(b"good").hexdigest()
+    set_manifest(
+        manifest_bytes(10, {p: {"rev": 3, "digest": digest} for p in ("/a", "/b")})
+    )
+    for p in ("/a", "/b"):
+        m.store.set_rev(ORIGIN, p, 3)
+        r = req(p)
+        m.process_request(r, None)
+        m.process_response(r, resp(r, b"bad"), None)
+    assert m.store.trust_state(ORIGIN) == "site_distrusted"
+    m.bootstrap_rate = 0.0
+    for p in ("/a", "/b"):
+        r = req(p)
+        m.process_request(r, None)
+        assert r.meta["pagedigest_audit"]
+        m.process_response(r, resp(r, b"good"), None)
+        assert m.store.trust_state(ORIGIN) == (
+            "site_distrusted" if p == "/a" else "trusted"
+        )
+    assert m.stats.get_value("pagedigest/site_recovered") == 1
+    m.store.close()
+    print("ok: site recovers after every suspect URL passes an audit")
+
+
+def test_recovery_without_digest_keeps_fetching():
+    m = make_mw(":memory:")
+    set_manifest(manifest_bytes(10, {"/a": {"rev": 3}}))
+    m.store.set_rev(ORIGIN, "/a", 3)
+    m.store.mark_url_suspect(ORIGIN, "/a")
+    for _ in range(2):
+        r = req()
+        assert m.process_request(r, None) is None
+        m.process_response(r, resp(r), None)
+        assert m.store.is_url_suspect(ORIGIN, "/a")
+    m.store.close()
+    print("ok: missing digest cannot clear suspicion")
+
+
+def test_redirect_metadata_does_not_record_original_revision():
+    m = make_mw(":memory:")
+    set_manifest(manifest_bytes(10, {"/a": {"rev": 3}}))
+    r = req()
+    m.process_request(r, None)
+    redirected = r.replace(url=ORIGIN + "/unlisted")
+    m.process_request(redirected, None)
+    m.process_response(redirected, resp(redirected), None)
+    assert m.store.get_rev(ORIGIN, "/a")[0] is None
+    m.store.close()
+    print("ok: redirects do not carry stale revision metadata")
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

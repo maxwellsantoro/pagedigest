@@ -5,7 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 
-import pagedigest, { generateManifest } from "../src/index.js";
+import pagedigest, { generateManifest, urlKeyForHtml } from "../src/index.js";
 import { build } from "astro";
 
 async function fixture() {
@@ -270,4 +270,19 @@ test("runs inside a real Astro build", async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+
+test("encodes Unicode and literal filename characters as path segments", () => {
+  for (const [filename, expected] of [
+    ["café/index.html", "/caf%C3%A9/"],
+    ["😀.html", "/%F0%9F%98%80.html"],
+    ["100%.html", "/100%25.html"],
+    ["a[b]^|.html", "/a%5Bb%5D%5E%7C.html"],
+    ["hello world.html", "/hello%20world.html"],
+    ["hello%20world.html", "/hello%2520world.html"],
+  ]) {
+    assert.equal(urlKeyForHtml(filename), expected);
+  }
+  if (path.sep === "/") assert.equal(urlKeyForHtml("a\\b.html"), "/a%5Cb.html");
 });

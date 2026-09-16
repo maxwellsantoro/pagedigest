@@ -21,7 +21,13 @@ const PATH_SEGMENT_ENCODE_SET: &AsciiSet = &CONTROLS
     .add(b'?')
     .add(b'{')
     .add(b'}')
-    .add(b'/');
+    .add(b'/')
+    .add(b'%')
+    .add(b'[')
+    .add(b']')
+    .add(b'^')
+    .add(b'|')
+    .add(b'\\');
 
 #[derive(Parser, Debug)]
 #[command(name = "pagedigest-generator")]
@@ -379,8 +385,17 @@ fn trailing_slash_url_key(encoded_rel: &str) -> String {
 }
 
 fn rel_to_url_key(rel: &Path, index_style: IndexStyle) -> Result<String> {
-    let rel_str = rel.to_string_lossy().replace('\\', "/");
-    let segments: Vec<&str> = rel_str.split('/').collect();
+    let segments: Vec<&str> = rel
+        .components()
+        .map(|component| {
+            component.as_os_str().to_str().with_context(|| {
+                format!(
+                    "non-UTF-8 filename cannot be represented as a URL: {}",
+                    rel.display()
+                )
+            })
+        })
+        .collect::<Result<_>>()?;
     let encoded_segments: Vec<String> = segments
         .iter()
         .map(|segment| encode_path_segment(segment))
@@ -537,22 +552,46 @@ mod tests {
     }
 
     #[test]
+    fn collect_digests_distinguishes_literal_percent_from_space() {
+        let dir = tempdir().expect("tempdir");
+        fs::write(dir.path().join("hello world.html"), b"a").unwrap();
+        fs::write(dir.path().join("hello%20world.html"), b"b").unwrap();
+        let digests = collect_digests(dir.path(), IndexStyle::File, &["html".into()]).unwrap();
+        assert!(digests.contains_key("/hello%20world.html"));
+        assert!(digests.contains_key("/hello%2520world.html"));
+        assert_eq!(digests.len(), 2);
+    }
+
+    #[test]
+    fn rel_to_url_key_encodes_unicode_and_non_path_characters() {
+        for (filename, expected) in [
+            ("café.html", "/caf%C3%A9.html"),
+            ("100%.html", "/100%25.html"),
+            ("a[b]^|.html", "/a%5Bb%5D%5E%7C.html"),
+        ] {
+            assert_eq!(
+                rel_to_url_key(Path::new(filename), IndexStyle::File).unwrap(),
+                expected
+            );
+        }
+        #[cfg(unix)]
+        assert_eq!(
+            rel_to_url_key(Path::new("a\\b.html"), IndexStyle::File).unwrap(),
+            "/a%5Cb.html"
+        );
+    }
+
+    #[test]
     fn collect_digests_detects_url_key_collision() {
         let dir = tempdir().expect("tempdir");
-        let root = dir.path();
-        // Literal space encodes to %20; a filename that already contains %20
-        // is left as-is for that segment and collides with the encoded form.
-        fs::write(root.join("hello world.html"), b"a").expect("write spaced name");
-        fs::write(root.join("hello%20world.html"), b"b").expect("write pre-encoded name");
-
-        let include_ext = vec!["html".to_string()];
-        let result = collect_digests(root, IndexStyle::File, &include_ext);
-        assert!(result.is_err());
-        let message = format!("{:#}", result.unwrap_err());
-        assert!(
-            message.contains("duplicate URL key"),
-            "unexpected error: {message}"
+        fs::write(dir.path().join("index.html"), b"a").unwrap();
+        fs::write(dir.path().join("index.htm"), b"b").unwrap();
+        let result = collect_digests(
+            dir.path(),
+            IndexStyle::TrailingSlash,
+            &["html".into(), "htm".into()],
         );
+        assert!(format!("{:#}", result.unwrap_err()).contains("duplicate URL key"));
     }
 
     #[test]
