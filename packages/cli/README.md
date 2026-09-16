@@ -2,14 +2,17 @@
 
 Thin npm launcher for the PageDigest manifest generator.
 
-The pinned release currently predates the source initialization/recovery safeguards.
-New `--init` and `--recover-floor` flags require the current source generator until
-a new release and launcher pins ship. Follow the [source quickstart](../../README.md#publish-a-manifest)
-for the reviewed safety workflow; never discard publisher state between runs.
+Version 0.3.0 pins generator 0.3.0, including explicit state initialization and
+recovery. Keep publisher state in durable, backed-up storage between builds.
+See the [publisher quickstart](../../README.md#publish-a-manifest) and
+[state recovery guide](../../CONTENT_HYGIENE.md#durable-publisher-state).
 
 ```bash
-npx pagedigest ./site-dist
-npx pagedigest ./site-dist --with-digest
+# First publication only, for an origin without previous history:
+npx pagedigest@0.3.0 ./site-dist --state /durable/example.com/state.json --init --with-digest
+
+# Subsequent builds require the existing state:
+npx pagedigest@0.3.0 ./site-dist --state /durable/example.com/state.json --with-digest
 ```
 
 The launcher downloads the matching generator binary from the pinned GitHub
@@ -56,14 +59,5 @@ npx pagedigest --help
 Requires Node.js 20 or newer (for global `fetch`). The generator and launcher
 are MIT licensed.
 
-## Version matrix
-
-| Component | Version |
-|-----------|---------|
-| Spec wire `version` | `1` (RC) |
-| This launcher / generator | `0.2.0` |
-| Python consumer (PyPI) | `0.1.0` |
-| `@pagedigest/astro` | `0.1.0` |
-
-Semver tracks **implementations**. Spec field `version` stays `1` until a
-breaking protocol revision.
+Implementation versions and registry availability: [version matrix](../../README.md#version-matrix).
+The wire format remains version `1`.

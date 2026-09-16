@@ -19,7 +19,7 @@ test("maps supported platforms to pinned release assets", () => {
   const mac = assetFor("darwin", "arm64");
   assert.equal(mac.target, "aarch64-apple-darwin");
   assert.equal(mac.archiveName, `pagedigest-generator-v${GENERATOR_VERSION}-aarch64-apple-darwin.tar.gz`);
-  assert.match(mac.url, /generator-v0\.2\.0/);
+  assert.match(mac.url, /generator-v0\.3\.0/);
   assert.equal(mac.sha256.length, 64);
 
   assert.equal(assetFor("win32", "x64").extension, "zip");

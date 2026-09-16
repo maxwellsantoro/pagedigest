@@ -8,29 +8,29 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-export const GENERATOR_VERSION = "0.2.0";
+export const GENERATOR_VERSION = "0.3.0";
 const RELEASE_ROOT = `https://github.com/maxwellsantoro/pagedigest/releases/download/generator-v${GENERATOR_VERSION}`;
 export const MAX_ARCHIVE_BYTES = 10 * 1024 * 1024;
 
 export const ASSETS = Object.freeze({
   "darwin-arm64": {
     target: "aarch64-apple-darwin",
-    sha256: "7da52a4780166be4b65ce1549fe46b0a874b5bc4a742540f440eff3339b395ce",
+    sha256: "fb42ec0e8a82c61d4d51e7260e481aefed7d7aadbbdf6e9d66522676a99afae9",
     extension: "tar.gz",
   },
   "darwin-x64": {
     target: "x86_64-apple-darwin",
-    sha256: "c833ce5fc7ff814762ea69a55f58287eb3c0502f9281071454349d96713c1fd2",
+    sha256: "b7c5d5bb27c5aa28046dbced7f522bba421543b42576ef94444d2ee8d1a71ebc",
     extension: "tar.gz",
   },
   "linux-x64": {
     target: "x86_64-unknown-linux-gnu",
-    sha256: "46705796ff1c681c60eb80bbd3ae5cecb6b8454c1604ef379fb3e92553c4f8e4",
+    sha256: "9ff4a7a602ddecd6810b69ac8bdcc9a673b64e5580c1342dffc3058bfc67e637",
     extension: "tar.gz",
   },
   "win32-x64": {
     target: "x86_64-pc-windows-msvc",
-    sha256: "62cbf491bb4a7a92aadcf2a537b49718e071abd8a5a191351c0a9d3924f52fef",
+    sha256: "266fa7a7d498188d27c08bde04f2ac146999a8d05e3eb4011b16a5e81073ecc5",
     extension: "zip",
   },
 });
