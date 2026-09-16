@@ -2,18 +2,19 @@
 
 **Now:** v1.0 — stable wire format, shipped reference implementations and packages, dogfood on [pagedigest.org](https://pagedigest.org). Gates: [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
 
-**Next:** safe consumer reuse, clean artifact release validation, and an independently
-operated benchmark with equivalent results and freshness. Additional publisher
+**Next:** an independently operated benchmark with equivalent results and
+freshness, building on the released consumer safety workflow. Additional publisher
 integrations and v1.1 features follow that evidence.
 
-## Consumer safety milestone (current source; not yet released)
+## Consumer safety milestone (released September 16, 2026)
 
 - Implemented: explicit publisher initialization/recovery, incomplete-cache checks,
   real 304 audits, and Scrapy cached-response replay with a traversal regression.
 - Implemented: clean wheel/npm-tarball installation checks and a controlled local
   comparison with conditional HTTP, accurate sitemap, and fingerprint baselines.
-- Remaining release work: assign new package versions, validate exact release
-  artifacts, publish them, and verify clean registry installs.
+- Released: generator/launcher 0.3.0 and Python/Astro 0.2.0, with exact artifact
+  checks and clean registry installation verification.
+  [Migration and release evidence](./docs/releases/consumer-safety.md).
 - Remaining adoption evidence: an independent operator, deployment failure and
   recovery observations, and equivalent-result/freshness measurements. Local
   fixtures and sibling deployments do not satisfy this milestone.
@@ -39,10 +40,10 @@ The cross-project execution order that got us here was trust hygiene first, then
 
 | Task | Priority / status |
 |------|-------------------|
-| GitHub Releases (`pagedigest-generator` binaries) | done — `v0.2.0` published for Linux, macOS, and Windows |
-| PyPI (`pagedigest` consumer) | done — `0.1.0` published with Trusted Publishing |
-| `cargo install` | done — `pagedigest 0.2.0` published to crates.io |
-| npm wrapper (`npx pagedigest`) | done — `pagedigest 0.2.0` published with verified binary downloads and Trusted Publishing |
+| GitHub Releases (`pagedigest-generator` binaries) | done — `v0.3.0` published for Linux, macOS, and Windows |
+| PyPI (`pagedigest` consumer) | done — `0.2.0` published with Trusted Publishing |
+| `cargo install` | done — `pagedigest 0.3.0` published to crates.io |
+| npm wrapper (`npx pagedigest`) | done — `pagedigest 0.3.0` published with verified binary downloads and Trusted Publishing |
 
 Update README install blocks as each ships. Semver for implementations; spec `version` stays `1`.
 Canonical matrix: [README.md § Version matrix](./README.md#version-matrix).
@@ -51,7 +52,7 @@ Canonical matrix: [README.md § Version matrix](./README.md#version-matrix).
 
 | Task | Priority |
 |------|----------|
-| Astro plugin (`@pagedigest/astro`) | done — `0.1.0` published to npm; OIDC releases configured |
+| Astro plugin (`@pagedigest/astro`) | done — `0.2.0` published to npm; OIDC releases configured |
 | Astro `withModified` + pipeline/docs parity | done — matches generator observation timestamps; HTML subset documented |
 | Producer case study ([dotrepo](./docs/case-studies/dotrepo.md), [template](./docs/DOGFOOD_TEMPLATE.md)) | done — first measured case study |
 | Hygiene checker utility | done — `tools/check_content_hygiene.py` |
@@ -106,4 +107,4 @@ discovery, and additional hash algorithms remain reserved; see [SPEC.md](./SPEC.
 
 ## Contribute
 
-Open an issue referencing a phase. Highest leverage now: **safe recurring consumer integrations**, **independent equivalent-result benchmarks**, and **release-artifact verification**.
+Open an issue referencing a phase. Highest leverage now: **independently operated recurring consumers** and **equivalent-result benchmarks**.

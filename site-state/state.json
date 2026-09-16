@@ -1,14 +1,14 @@
 {
-  "site_rev": 10,
+  "site_rev": 11,
   "revision_floor": 0,
   "coverage": {
     "mode": "complete"
   },
   "entries": {
     "/": {
-      "rev": 10,
-      "digest": "e27817a55a81aed21504015b7ace641be4523ae58b50b69fdbb735b5928d3dfb",
-      "modified": "2026-09-16T16:29:30Z"
+      "rev": 11,
+      "digest": "b593b49846c880cb02ec17e41d722029cb12a7ba308a3170b90cad0e6f8b55d3",
+      "modified": "2026-09-16T20:56:52Z"
     },
     "/404.html": {
       "rev": 1,

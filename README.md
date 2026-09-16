@@ -44,12 +44,12 @@ package releases are separate from protocol status. Discovery uses
 a short-form IANA relation. `PageDigest-State` is an optional observation header,
 not authentication or evidence that every subsequent fetch is necessary.
 
-**Safety release in preparation (generator 0.3.0, Python/Astro 0.2.0):** explicit publisher
-initialization/recovery, incomplete-cache handling, audits across 304 responses,
-and cached-response replay in the experimental Scrapy adapter. Use the source
-quickstarts below to exercise these changes. Existing registry versions in the
-matrix do not include all current-source behavior. Do not add new flags to older
-released binaries. Release readiness is tracked in [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
+**Consumer safety release (September 16, 2026):** generator/launcher 0.3.0 and
+Python/Astro 0.2.0 include explicit publisher initialization/recovery,
+incomplete-cache handling, and audits across 304 responses. The experimental
+Scrapy adapter replays cached responses to preserve traversal. See the
+[migration notes and artifact verification](./docs/releases/consumer-safety.md).
+Independent recurring-consumer evidence remains an open adoption milestone.
 
 ### Version matrix
 
@@ -57,34 +57,38 @@ released binaries. Release readiness is tracked in [RELEASE_CHECKLIST.md](./RELE
 |-----------|---------------|--------|
 | Spec wire field `version` | `1` | Final v1.0 protocol; stays `1` until a breaking protocol change |
 | Protocol release tag | `v1.0.0` | Spec/status milestone; independent of package semver |
-| `pagedigest-generator` / `npx pagedigest` / crates.io `pagedigest` | `0.2.0` | Publisher CLI |
-| Python consumer (PyPI `pagedigest`) | `0.1.0` | v1.0-compatible API; semver is independent of the generator |
-| `@pagedigest/astro` | `0.1.0` | Static HTML subset of the generator |
+| `pagedigest-generator` / `npx pagedigest` / crates.io `pagedigest` | `0.3.0` | Publisher CLI; explicit initialization and recovery |
+| Python consumer (PyPI `pagedigest`) | `0.2.0` | Validated-manifest conditional requests and per-URL cache checks |
+| `@pagedigest/astro` | `0.2.0` | Static HTML subset; explicit initialization and recovery |
 | Scrapy middleware | experimental in-tree | Depends on consumer `>=0.1.0`; not on PyPI |
 
 ## Publish a manifest
 
-From this checkout, build the generator and install the consumer CLI:
+Install the released generator and consumer CLI:
 
 ```bash
-cargo build --locked --manifest-path implementations/rust-generator/Cargo.toml
-python -m pip install ./implementations/python-consumer
+cargo install pagedigest --version 0.3.0 --locked
+python -m pip install pagedigest==0.2.0
 
 # Build your site into ./site-dist first.
 # ONE TIME ONLY, for an origin with no prior publication:
-./implementations/rust-generator/target/debug/pagedigest-generator ./site-dist \
+pagedigest-generator ./site-dist \
   --state /durable/pagedigest/example.com/state.json --init --with-digest
 
 # Every subsequent build: missing state is an error, never a fresh initialization.
-./implementations/rust-generator/target/debug/pagedigest-generator ./site-dist \
+pagedigest-generator ./site-dist \
   --state /durable/pagedigest/example.com/state.json --with-digest
 ```
+
+The same generator is available as `npx pagedigest@0.3.0` and
+[release binaries](https://github.com/maxwellsantoro/pagedigest/releases/tag/generator-v0.3.0).
 
 Replace `/durable/...` with backed-up storage that survives builds. An evictable
 CI cache is insufficient. Serialize generation, state persistence, deployment,
 and reconciliation. Publish pages before or atomically with the manifest.
 
-When digests are enabled, after deployment:
+When digests are enabled, run the repository reconciliation tool from a checkout
+after deployment:
 
 ```bash
 python tools/reconcile_served_digests.py ./site-dist/.well-known/pagedigest.json \
@@ -102,8 +106,10 @@ semantic significance; disabling digests does not suppress revision churn.
 
 ## Integrate a consumer
 
+Install the consumer, then run the persistent example from this checkout:
+
 ```bash
-python -m pip install ./implementations/python-consumer
+python -m pip install pagedigest==0.2.0
 python implementations/python-consumer/examples/cache_persistence.py \
   https://example.com ./cache/example.json --audit-rate 0.01
 ```
@@ -143,8 +149,9 @@ not the sole source of request reduction. [Comparison and primary references](./
 - [Controlled consumer benchmark](./docs/benchmarks/README.md): real local HTTP,
   equivalent collection and freshness checks, conditional HTTP, accurate sitemap,
   fingerprint manifest, and PageDigest baselines. Not independent adoption evidence.
-- [pagedigest.org](https://pagedigest.org): dogfood deployment. Current source changes
-  are not evidence that deployed sites or registry packages have been updated.
+- [pagedigest.org](https://pagedigest.org): dogfood deployment.
+  [Release verification](./docs/releases/consumer-safety.md#verification) records
+  published-artifact checks and the live digest audit separately.
 
 Version 1 uses one manifest. The reference consumer caps it at 10 MiB. Large
 collections must use partial coverage until a sharding extension exists. Dynamic,
