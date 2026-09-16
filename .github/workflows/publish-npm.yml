@@ -60,5 +60,10 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Publish
-        run: npm publish
+      - name: Pack and test the exact release archive
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          node ../../tools/check_astro_archive.mjs "$RUNNER_TEMP"/pagedigest-astro-*.tgz
+
+      - name: Publish tested archive
+        run: npm publish "$RUNNER_TEMP"/pagedigest-astro-*.tgz

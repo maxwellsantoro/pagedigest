@@ -2,6 +2,11 @@
 
 Thin npm launcher for the PageDigest manifest generator.
 
+The pinned release currently predates the source initialization/recovery safeguards.
+New `--init` and `--recover-floor` flags require the current source generator until
+a new release and launcher pins ship. Follow the [source quickstart](../../README.md#publish-a-manifest)
+for the reviewed safety workflow; never discard publisher state between runs.
+
 ```bash
 npx pagedigest ./site-dist
 npx pagedigest ./site-dist --with-digest

@@ -1,13 +1,14 @@
 {
-  "site_rev": 8,
+  "site_rev": 10,
+  "revision_floor": 0,
   "coverage": {
     "mode": "complete"
   },
   "entries": {
     "/": {
-      "rev": 8,
-      "digest": "a48ef15dcc023800e9cb8d955e847a8cbd1f07c354fe6173865f93ecf94b616a",
-      "modified": "2026-07-08T22:23:21Z"
+      "rev": 10,
+      "digest": "e27817a55a81aed21504015b7ace641be4523ae58b50b69fdbb735b5928d3dfb",
+      "modified": "2026-09-16T16:29:30Z"
     },
     "/404.html": {
       "rev": 1,
@@ -15,9 +16,9 @@
       "modified": "2026-07-04T04:42:38Z"
     },
     "/announcements/v1-rc/": {
-      "rev": 1,
-      "digest": "55e0b374f14246018f86a0603c296b204516ec36288ee4f601a15a8b23f42c91",
-      "modified": "2026-07-04T04:42:38Z"
+      "rev": 2,
+      "digest": "2c359e91be957fec826231ffaf17766e3fb117d32c0c1c367e5b766c1f099d74",
+      "modified": "2026-09-16T16:29:30Z"
     },
     "/rel/": {
       "rev": 2,

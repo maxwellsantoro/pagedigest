@@ -1,6 +1,10 @@
 import type { AstroIntegration } from "astro";
 
 export interface PageDigestAstroOptions {
+  /** One-time first publication only; refuses existing state. */
+  initialize?: boolean;
+  /** Known upper bound on all previously published revisions, for missing-state recovery. */
+  recoverFloor?: number;
   /** @default ".well-known/pagedigest.json" */
   output?: string;
 
@@ -33,6 +37,8 @@ export interface PageDigestAstroOptions {
 }
 
 export interface GenerateManifestOptions {
+  initialize?: boolean;
+  recoverFloor?: number;
   outputDir: string;
   statePath: string;
   output?: string;

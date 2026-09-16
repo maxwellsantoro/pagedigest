@@ -156,3 +156,99 @@ pagedigest verify-live https://example.com --sample-size 25
 
 The legacy `tools/verify_over_wire_digests.py` script remains as a compatibility
 wrapper for existing repository automation.
+
+## Durable publisher state
+
+The following initialization and recovery interfaces require **generator 0.3.0
+or Astro 0.2.0**. Existing durable
+state remains readable; normal builds do not need an initialization flag.
+
+The Rust generator refuses missing state unless explicitly invoked with `--init`
+(first publication only) or `--recover-floor N`. Astro exposes `initialize: true`
+and `recoverFloor: N` for the corresponding one-time operation. Both refuse to
+replace existing state, and initialization refuses an existing output manifest.
+Remove the initialization option before recurring builds. It is not a CI fallback.
+
+Persist the state outside ephemeral workspaces and evictable CI caches, back it
+up, and serialize the entire publication pipeline. Generator state includes
+retired URL high-water marks; saving only the current public manifest loses those
+marks. Each generator takes a `<state>.lock` during local generation. This guards
+one filesystem, not concurrent deployments from independent machines. After a
+crash, inspect the state/output and confirm there is no writer before removing a
+stale lock. Use a CI concurrency group or an external publication lock through
+state persistence, deployment, and reconciliation.
+
+### CI recipe with a durable state branch
+
+Create a dedicated `pagedigest-state` branch containing initialized `state.json`
+once, outside recurring CI. This is durable publication history, not a cache.
+Do not reset or force-push it. Restrict writers and back it up. The branch can be
+private if state paths or retired URLs should not be public.
+
+This workflow template uses the current source generator. Replace the two
+marked site-specific commands with your build and deploy commands. The state
+branch must already exist; checkout failure must fail the job.
+
+```yaml
+name: Publish with durable PageDigest state
+on: workflow_dispatch
+permissions:
+  contents: write
+concurrency:
+  group: pagedigest-production
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          ref: pagedigest-state
+          path: publisher-state
+      - uses: dtolnay/rust-toolchain@stable
+      - run: ./build-site.sh # replace with your build command producing site-dist/
+      - run: >-
+          cargo run --locked --manifest-path implementations/rust-generator/Cargo.toml --
+          ./site-dist --state ./publisher-state/state.json --with-digest
+      - name: Persist reserved revisions before deployment
+        working-directory: publisher-state
+        run: |
+          git config user.name "PageDigest publisher"
+          git config user.email "publisher@example.com"
+          git add state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Reserve publication revisions"
+            git push origin HEAD:pagedigest-state
+          fi
+      - run: ./deploy-site.sh # replace with your atomic deploy and digest reconciliation
+```
+
+If a job fails after state is reserved, the next build continues from the higher
+state. It must not restore an older state file to make revision numbers smaller.
+If reconciliation uses `--bump-site-rev --state`, persist its updated state before
+publishing the corrected manifest, under the same publication lock.
+
+### Recovery after state loss
+
+Prefer restoring the latest complete durable state, including retired entries.
+If only older backups remain, establish an upper bound **N on every site and
+per-URL revision ever published, including retired URLs**, using trustworthy
+publication records. Then run once with missing state:
+
+```bash
+pagedigest-generator ./site-dist --state /durable/example/state.json \
+  --recover-floor 100000 --with-digest
+```
+
+Here `100000` is illustrative; do not copy it without establishing your own bound.
+The generator starts recovered entries and site state above N and persists a
+floor for historical keys reintroduced later. Astro's `recoverFloor` uses the
+same rule and requires safe JavaScript integers. Without a trustworthy bound,
+do not invent a recovery number or silently initialize: restore history or
+coordinate a cache reset with consumers before resuming publication.
+
+No local tool can distinguish a genuine first publication from total loss of all
+publication evidence. Explicit initialization is an operator assertion, not an
+automatic proof. Full-byte hashing is conservative change detection; disabling
+emitted digests does not eliminate byte-induced revision churn.

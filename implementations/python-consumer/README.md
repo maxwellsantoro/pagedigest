@@ -84,3 +84,26 @@ state are replaced atomically, page responses are size-capped, redirects are
 rejected, and manifest state advances only after every required page fetch
 succeeds. Use `--pages` to choose a body-cache directory and
 `--max-page-bytes` to change the default 10 MiB response cap.
+
+
+## Safe reuse (0.2.0 and later)
+
+Pass only revisions for results you still have in `cached_revs`. `check_site`
+compares those entries even when `site_rev` is equal. Supply `cached_manifest`
+together with its ETag/Last-Modified to enable conditional requests. A 304 still
+returns a full download/audit plan; never interpret `not_modified` as completion.
+The function plans audits; the caller must execute `audit_candidates`.
+
+The persistent example now stores the validated manifest and content-addressed
+bodies, validates body integrity before reuse, and runs audits on 200 and 304
+cycles. `--audit-rate` selects the fraction (default 0.01). Mismatch marks the
+snapshot distrusted and the next run refreshes all described resources; successful
+verified refresh clears distrust. Inconclusive audits return nonzero for retry.
+A digest change at the same revision also triggers conservative refresh. Anomalous
+manifests require ordinary crawl fallback, which this collection-cache example
+does not implement. Partial coverage needs separate discovery/removal policies.
+
+The example serializes writers using a state lock. Content-addressed orphan bodies
+from interrupted cycles are harmless and can be garbage-collected offline after
+checking all live state references. Use one state file per origin. Restoring old
+consumer metadata without corresponding bodies never authorizes skipping.

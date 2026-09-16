@@ -50,7 +50,7 @@ For this snapshot:
 | Covered JSON bytes | 4,874,442 |
 | Covered JSON bytes avoided | 4,127,371 |
 | Covered-byte avoidance | 84.7% |
-| Estimated tokens avoided | 1,031,842 |
+| Illustrative context volume (avoided bytes / 4; not measured inference savings) | 1,031,842 |
 
 Including the manifest download, a PageDigest-aware sync would fetch about
 1,421,492 bytes for this cycle: 674,421 bytes of manifest plus 747,071 bytes of
@@ -97,6 +97,8 @@ Expected shape for this snapshot:
   live edge canary.
 - Outcome: the dogfood publisher now has a concrete health endpoint that helps
   distinguish a coherent deployment from cache or route split-brain.
+
+Including the manifest request, the estimate is 136 versus 2,453 requests (94.46% fewer), excluding audits. These historical counts describe this export snapshot, not current live corpus size or an independently operated consumer.
 
 ## Why this matters
 

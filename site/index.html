@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pagedigest — one file that tells crawlers what changed</title>
+<title>pagedigest — check what changed before fetching it again</title>
 <meta name="description" content="pagedigest is a one-file protocol: a JSON manifest at /.well-known/pagedigest.json that tells automated clients which pages changed, so both sides stop wasting bandwidth.">
 <link rel="canonical" href="https://pagedigest.org/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://pagedigest.org/">
-<meta property="og:title" content="pagedigest — one file that tells crawlers what changed">
+<meta property="og:title" content="pagedigest — check what changed before fetching it again">
 <meta property="og:description" content="A one-file change-detection protocol for publishers and automated consumers.">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="pagedigest — one file that tells crawlers what changed">
+<meta name="twitter:title" content="pagedigest — check what changed before fetching it again">
 <meta name="twitter:description" content="A JSON manifest that lets crawlers fetch only pages that changed.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='10' y='10' width='44' height='44' rx='8' fill='%23152228'/%3E%3Ctext x='32' y='42' font-family='monospace' font-size='26' fill='%23F2F5F6' text-anchor='middle'%3E%E2%86%91%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -231,68 +231,33 @@
     <a class="wordmark" href="/">pagedigest<span class="dot">.json</span></a>
     <nav class="top-links" aria-label="Page navigation">
       <a href="#manifest">Manifest</a>
-      <a href="#stack">Stack</a>
       <a href="#how">How it works</a>
       <a href="#different">Why different</a>
       <a href="#live">Live</a>
-      <a href="#bargain">The bargain</a>
+      <a href="#bargain">Safe reuse</a>
       <a href="https://github.com/maxwellsantoro/pagedigest">GitHub</a>
     </nav>
   </header>
 
   <section class="hero">
-    <h1>One file that tells crawlers what changed.</h1>
-    <p class="lede">A site publishes a JSON manifest at <code>/.well-known/pagedigest.json</code>.
-    Each URL gets a monotonic integer that moves only when the content moves. A crawler fetches
-    the manifest, compares integers, and fetches only the pages that changed — one request
-    instead of thousands.</p>
-
-    <div class="argument" role="group" aria-label="The same argument from both sides">
-      <figure class="publisher">
-        <blockquote>&ldquo;If you would stop hammering my server for pages that haven&rsquo;t
-        changed, I wouldn&rsquo;t have to rate-limit or ban you.&rdquo;</blockquote>
-        <figcaption>The publisher</figcaption>
-      </figure>
-      <figure class="crawler">
-        <blockquote>&ldquo;If you would stop hiding behind bot detection, I wouldn&rsquo;t have
-        to hammer your server — I just need to know what&rsquo;s new.&rdquo;</blockquote>
-        <figcaption>The crawler</figcaption>
-      </figure>
-    </div>
-    <p class="argument-note">They are describing the same waste. pagedigest is the coordination.</p>
-  </section>
-
-  <section id="stack">
-    <div class="wrap" style="padding:0">
-      <h2>Two layers of cooperative automation</h2>
-      <p>pagedigest prevents redundant fetching. Its sibling project
-      <a href="https://dotrepo.org">dotrepo</a> prevents redundant repository interpretation.
-      Together, they are publisher-declared state for automated clients: fetch less,
-      infer less, and preserve provenance.</p>
-      <div class="status-grid">
-        <div class="cell">
-          <h3>PageDigest</h3>
-          <p>One manifest tells automated clients what changed.</p>
-        </div>
-        <div class="cell">
-          <h3>dotrepo</h3>
-          <p>One trust-aware record tells automated clients what a repository is and how to use it.</p>
-        </div>
-        <div class="cell">
-          <h3>Together</h3>
-          <p>Fetch less. Re-interpret less. Preserve provenance.</p>
-        </div>
-      </div>
-    </div>
+    <h1>Check what changed before fetching it again.</h1>
+    <p class="lede">PageDigest is a JSON change manifest for public websites. Publishers list
+    resource revisions; recurring crawlers, indexers, and caches compare them with local state
+    and avoid refetching resources they already have.</p>
+    <p class="lede">Designed for mostly static content and consumers that retain results between
+    runs. Optional SHA-256 digests support spot checks of published representations.</p>
+    <p><a href="https://github.com/maxwellsantoro/pagedigest#publish-a-manifest">Publish a manifest</a>
+    · <a href="https://github.com/maxwellsantoro/pagedigest#integrate-a-consumer">Integrate a consumer</a></p>
   </section>
 
   <section id="manifest">
     <div class="wrap" style="padding:0">
       <h2>The manifest</h2>
-      <p>For a 10,000-page site that changes 20 pages a week, a consumer makes one manifest
-      request plus twenty page fetches per cycle — instead of ten thousand per-URL checks.
+      <p>For an established cache covering 10,000 pages with 20 changes per cycle, the ideal
+      count is one manifest plus twenty page fetches. A 1% audit adds roughly 100 requests.
+      Initial synchronization and missing local results require additional fetches.
       <code style="font-family:var(--mono);font-size:0.9em">site_rev</code> is the one-request
-      fast path: if it hasn&rsquo;t moved, nothing has.</p>
+      fast path: an unchanged value permits reuse of complete local results for covered resources.</p>
 
 <pre class="manifest" aria-label="Example pagedigest manifest">{
   <span class="k">"version"</span>: <span class="v">1</span>,
@@ -302,14 +267,15 @@
     <span class="k">"/"</span>: { <span class="k">"rev"</span>: <span class="rev">47</span> },
     <span class="k">"/about"</span>: { <span class="k">"rev"</span>: <span class="rev">12</span> },
 <span class="row-changed">    <span class="k">"/blog/hello-world"</span>: {</span>
-<span class="row-changed">      <span class="k">"rev"</span>: <span class="rev">4</span>,   <span class="muted">// was 3 — this is the only page to re-fetch</span></span>
-<span class="row-changed">      <span class="k">"digest"</span>: <span class="v">"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e…"</span></span>
+<span class="row-changed">      <span class="k">"rev"</span>: <span class="rev">4</span>,</span>
+<span class="row-changed">      <span class="k">"digest"</span>: <span class="v">"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"</span></span>
 <span class="row-changed">    }</span>
   }
 }</pre>
-      <p class="manifest-caption">The optional <span style="color:var(--crawler)">digest</span> lets
-      consumers spot-audit publisher claims: publishers who lie get caught, publishers who
-      cooperate accumulate trust.</p>
+      <p class="manifest-caption">Illustrative timestamp placeholder; use an actual UTC timestamp when publishing.
+      The optional <span style="color:var(--crawler)">digest</span> lets
+      consumers spot-check selected representations. A matching sample does not prove
+      correct revision history or every skipped resource.</p>
     </div>
   </section>
 
@@ -319,19 +285,20 @@
       <ol class="steps">
         <li><div><strong>Fetch the manifest</strong>
           <p>One GET to <code>/.well-known/pagedigest.json</code>. If it&rsquo;s missing or
-          malformed, fall back to whatever you did before — the protocol never makes things worse.</p>
+          malformed, fall back to ordinary crawling. Missing local results still require work.</p>
         </div></li>
         <li><div><strong>Compare <code>site_rev</code></strong>
-          <p>Same integer as last visit? Nothing on the site changed. The crawl cycle is over
-          after a single request.</p>
+          <p>The same integer describes the covered set, not local cache completeness.
+          Reuse only results that remain available at their recorded revisions.</p>
         </div></li>
         <li><div><strong>Fetch only what moved</strong>
-          <p>For each URL whose <code>rev</code> incremented, re-fetch. Everything else is
-          provably unchanged, on the publisher&rsquo;s own word.</p>
+          <p>Fetch new, changed, missing, or invalid local results. An unchanged revision is
+          a publisher assertion; unlisted resources retain ordinary discovery and validation.</p>
         </div></li>
         <li><div><strong>Audit occasionally</strong>
           <p>Hash a sampled page and compare it to the manifest&rsquo;s <code>digest</code>.
-          A mismatch means the manifest can&rsquo;t be trusted — downgrade and fall back.</p>
+          Compare with stored representation evidence too. Retry inconclusive checks and
+          deployment races; refresh or fall back when evidence conflicts. Audit even on no-change cycles.</p>
         </div></li>
       </ol>
     </div>
@@ -339,13 +306,15 @@
 
   <section id="different">
     <div class="wrap" style="padding:0">
-      <h2>Why this is not another sitemap or cache</h2>
-      <p>Sitemaps tell you what exists. ETags tell you, one request at a time, what changed.
-      pagedigest tells you — in one request — what didn&rsquo;t.</p>
+      <h2>A small change-manifest format</h2>
+      <p>Batching accurate change information avoids per-resource checks. PageDigest chooses
+      a small JSON format with ordered revisions; maintaining those counters requires durable publisher state.</p>
       <table class="comparison">
         <thead><tr><th>Mechanism</th><th>Its job</th><th>The remaining gap</th></tr></thead>
         <tbody>
-          <tr><td>sitemap + lastmod</td><td>Discovery and advisory timestamps</td><td>No monotonic site-wide fast path or audit model</td></tr>
+          <tr><td>sitemap + lastmod</td><td>Discovery and incremental refresh timestamps</td><td>No monotonic site-wide fast path or audit model</td></tr>
+          <tr><td>ResourceSync</td><td>Lists, changes, hashes, and synchronization discovery</td><td>PageDigest offers a smaller JSON surface with fewer capabilities</td></tr>
+          <tr><td>Fingerprint manifest</td><td>Bulk byte comparison and manifest ETags</td><td>Counters add ordering and optional semantic separation, with durable-history cost</td></tr>
           <tr><td>ETag / 304</td><td>Per-resource validation</td><td>Still one request per URL</td></tr>
           <tr><td>RSS / Atom</td><td>Recent-entry feed</td><td>Cannot establish that older or omitted pages stayed unchanged</td></tr>
           <tr><td>IndexNow</td><td>Publisher push to participating search engines</td><td>Not a pullable manifest for arbitrary consumers</td></tr>
@@ -362,14 +331,14 @@
 
   <section id="live">
     <div class="wrap" style="padding:0">
-      <h2>Live in production</h2>
+      <h2>Evidence and deployments</h2>
       <div class="proof">
-        <div class="stamp">First production publisher</div>
-        <p><a href="https://dotrepo.org">dotrepo.org</a> — a public index of repository
-        metadata for AI agents — publishes a pagedigest manifest covering its full corpus:
-        613 repositories and 3,067 JSON payloads in its current checked-in snapshot. Mirrors and
-        agent caches sync the whole index with one manifest request plus only the files whose
-        revision moved.</p>
+        <div class="stamp">Dated export estimate · July 3, 2026</div>
+        <p>The <a href="https://github.com/maxwellsantoro/pagedigest/blob/main/docs/case-studies/dotrepo.md">dotrepo case study</a>
+        covers 2,453 repository JSON records. It estimates 136 requests including the manifest,
+        versus 2,453 full record fetches, before audits. Estimated payload-byte reduction is 70.8%
+        including the manifest. These are export-derived figures, not an independently measured
+        production consumer or model-token savings. The live manifest may now describe a different snapshot.</p>
         <pre>curl -s https://dotrepo.org/.well-known/pagedigest.json | jq .site_rev</pre>
       </div>
       <div class="proof" style="margin-top:14px">
@@ -390,29 +359,14 @@
 
   <section id="bargain">
     <div class="wrap" style="padding:0">
-      <h2>The bargain</h2>
-      <p>pagedigest is a coordination protocol, not a defense mechanism. Each side takes on an
-      obligation that is already in its own interest.</p>
-      <div class="bargain">
-        <div class="side publisher">
-          <h3>Publishers commit</h3>
-          <ul>
-            <li>The integers move when content moves — and only then.</li>
-            <li>Digests are accurate hashes of what the server actually sends.</li>
-            <li>A publisher with an honest manifest has earned the right to rate-limit
-            consumers that ignore it.</li>
-          </ul>
-        </div>
-        <div class="side crawler">
-          <h3>Consumers commit</h3>
-          <ul>
-            <li>Fetch the manifest first; skip what hasn&rsquo;t moved.</li>
-            <li>Audit digests occasionally to keep publishers honest.</li>
-            <li>A consumer that respects the manifest is not the problem — that&rsquo;s the
-            intended use.</li>
-          </ul>
-        </div>
-      </div>
+      <h2>Safe reuse</h2>
+      <p>Publishers preserve revision history; consumers preserve usable results. A skipped
+      download must not hide missing content, interrupted processing, or links to changed pages.</p>
+      <p>The reference generators compare full build bytes. Semantic revisions require a publisher
+      integration supplying that signal. Digest sampling checks representations, not every historical claim.</p>
+      <p><a href="https://github.com/maxwellsantoro/pagedigest/blob/main/docs/benchmarks/README.md">Controlled benchmark and limitations</a>:
+      equivalent results are checked before counting requests. Independent recurring-consumer evidence
+      remains the next adoption milestone.</p>
     </div>
   </section>
 
@@ -422,7 +376,8 @@
       <div class="status-grid">
         <div class="cell">
           <h3>v1.0</h3>
-          <p>PageDigest version 1 is final. The RC path is archived in the
+          <p>The wire format is final. Current-source safety improvements are not yet in all
+          released packages; see the repository version matrix. The RC path is archived in the
           <a href="/announcements/v1-rc/">release-candidate announcement</a>.</p>
         </div>
         <div class="cell">
@@ -455,7 +410,7 @@
 
 <footer>
   <div class="wrap">
-    <span>pagedigest — a protocol for cooperative change detection</span>
+    <span>pagedigest — a change manifest for recurring consumers</span>
     <span>sibling project: <a href="https://dotrepo.org">dotrepo</a> (what a repository <em>means</em>; pagedigest covers what <em>changed</em>)</span>
   </div>
 </footer>

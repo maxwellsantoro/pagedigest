@@ -5,6 +5,8 @@ on. SQLite keeps it dependency-free and survivable across runs.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 import time
 from typing import Optional
@@ -17,6 +19,9 @@ class Store:
     def __init__(self, path: str = "pagedigest_state.db"):
         self.db = sqlite3.connect(path)
         self.db.executescript("""
+        CREATE TABLE IF NOT EXISTS response(
+            origin TEXT, url TEXT, body BLOB, headers TEXT, digest TEXT,
+            PRIMARY KEY(origin, url));
         CREATE TABLE IF NOT EXISTS rev(
             origin TEXT, url TEXT, rev INTEGER, size INTEGER DEFAULT 0,
             PRIMARY KEY(origin, url));
@@ -41,6 +46,22 @@ class Store:
             "INSERT INTO rev(origin,url,rev,size) VALUES(?,?,?,?) "
             "ON CONFLICT(origin,url) DO UPDATE SET rev=excluded.rev, size=excluded.size",
             (origin, url, rev, size),
+        )
+        self.db.commit()
+
+    def get_response(self, origin, url):
+        row = self.db.execute("SELECT body, headers, digest FROM response WHERE origin=? AND url=?", (origin, url)).fetchone()
+        if row is None or "sha256:" + hashlib.sha256(row[0]).hexdigest() != row[2]:
+            return None
+        return row[0], json.loads(row[1]), row[2]
+
+    def set_response(self, origin, url, response):
+        headers = {key.decode("latin1"): [v.decode("latin1") for v in values]
+                   for key, values in response.headers.items()
+                   if key.lower() not in (b"content-encoding", b"content-length", b"set-cookie")}
+        self.db.execute(
+            "INSERT OR REPLACE INTO response VALUES (?, ?, ?, ?, ?)",
+            (origin, url, response.body, json.dumps(headers), "sha256:" + hashlib.sha256(response.body).hexdigest()),
         )
         self.db.commit()
 

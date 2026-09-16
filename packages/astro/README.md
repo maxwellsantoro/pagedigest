@@ -11,13 +11,23 @@ import { defineConfig } from "astro/config";
 import pagedigest from "@pagedigest/astro";
 
 export default defineConfig({
-  integrations: [pagedigest()],
+  integrations: [pagedigest({
+    state: process.env.PAGEDIGEST_STATE, // backed-up path, outside build output
+    initialize: process.env.PAGEDIGEST_INITIALIZE === "1",
+  })],
 });
 ```
 
 The integration writes `.well-known/pagedigest.json` inside Astro's output
 directory during `astro:build:done`, and stores persistent revision state at
 `.astro/pagedigest-state.json`.
+
+Version 0.2.0 introduces explicit initialization and state recovery.
+Install with `npm install @pagedigest/astro@^0.2.0` to use these options.
+For the first publication only, set `PAGEDIGEST_INITIALIZE=1` and
+`PAGEDIGEST_STATE=/durable/example/state.json` when running `astro build`.
+Unset `PAGEDIGEST_INITIALIZE` for every later build; keep the state path stable.
+Missing state then fails the build. Do not hardcode initialization in recurring CI.
 
 ## Publisher pipeline (required when digests are enabled)
 
@@ -61,9 +71,7 @@ file-style index keys (`--index-style file`). CI runs
 `tools/smoke_generator_astro_conformance.py` on the shared HTML subset, including Unicode and escaped filenames so
 the two stay aligned for that matrix.
 
-Keep the state file durable between builds. If it is deleted on every CI run,
-PageDigest revisions will restart and consumers will correctly treat that as an
-untrusted/fallback condition.
+Keep the state durable and serialize publication. A revision reset can reuse numbers silently; it is not always detectable by a consumer. [Initialization and recovery](../../CONTENT_HYGIENE.md#durable-publisher-state) describe the one-time `initialize` and `recoverFloor` options. Full build-byte comparison drives revisions even with `withDigest: false`.
 
 ## Options
 
@@ -87,3 +95,6 @@ pagedigest({
 - `withModified`: emit stable per-entry content-observation timestamps
   (default `false`). Unchanged content keeps the prior timestamp.
 - `coverage`: `complete`, `prefixes`, or `false` to omit coverage metadata.
+
+- `initialize`: first publication only; refuses existing state or output manifest.
+- `recoverFloor`: known historical upper bound used only to recover missing state.

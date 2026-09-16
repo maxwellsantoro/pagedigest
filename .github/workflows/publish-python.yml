@@ -61,6 +61,12 @@ jobs:
       - name: Build package
         run: uv build implementations/python-consumer
 
+      - name: Test the exact built wheel in an isolated installation
+        run: >-
+          uv run --project implementations/python-consumer --locked python
+          tools/check_install_artifacts.py --python-only
+          --wheel implementations/python-consumer/dist/pagedigest-*.whl
+
       - name: Check package metadata
         run: uvx twine check implementations/python-consumer/dist/*
 

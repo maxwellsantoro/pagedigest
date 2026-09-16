@@ -12,7 +12,6 @@ import tempfile
 
 from scrapy.http import Request, Response
 from scrapy.settings import Settings
-from scrapy.exceptions import IgnoreRequest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pagedigest_scrapy import middleware as mw  # noqa: E402
@@ -101,11 +100,9 @@ def test_first_contact_then_skip():
         m.process_response(r, resp(r), None)  # records rev 3
         # second run, unchanged -> skip
         r2 = req("/a")
-        try:
-            m.process_request(r2, None)
-            assert False, "expected IgnoreRequest"
-        except IgnoreRequest:
-            pass
+        cached = m.process_request(r2, None)
+        assert cached.body == b"hello"
+        assert "pagedigest_cached" in cached.flags
         assert m.stats.get_value("pagedigest/skipped") == 1
 
     run(c)
@@ -253,11 +250,7 @@ def test_http_errors_do_not_cache_revisions_or_block_retries():
             assert m.process_request(retry, None) is None
             m.process_response(retry, resp(retry), None)
             assert m.store.get_rev(ORIGIN, "/a")[0] == 3
-            try:
-                m.process_request(req(), None)
-                assert False, "successful retry should establish revision"
-            except IgnoreRequest:
-                pass
+            assert "pagedigest_cached" in m.process_request(req(), None).flags
             m.store.close()
     print("ok: HTTP failures leave revisions unchanged and retries fetch")
 
@@ -298,11 +291,7 @@ def test_suspect_url_recovers_from_clean_forced_fetch():
     assert r.meta["pagedigest_audit"]  # recovery does not depend on sample rate
     m.process_response(r, resp(r, b"good"), None)
     assert not m.store.is_url_suspect(ORIGIN, "/a")
-    try:
-        m.process_request(req(), None)
-        assert False, "recovered URL should skip"
-    except IgnoreRequest:
-        pass
+    assert "pagedigest_cached" in m.process_request(req(), None).flags
     m.store.close()
     print("ok: suspect URL recovers through a clean forced fetch")
 
@@ -404,12 +393,7 @@ def test_large_revisions_and_deep_json_fall_back():
     m.process_response(r, resp(r), None)
     assert m.store.get_site(ORIGIN)[0] == 2**63 - 1
     assert m.store.get_rev(ORIGIN, "/a")[0] == 2**63 - 1
-    try:
-        m.process_request(req(), None)
-    except IgnoreRequest:
-        pass
-    else:
-        raise AssertionError("unchanged maximum revision should skip")
+    assert "pagedigest_cached" in m.process_request(req(), None).flags
     m.store.close()
     print("ok: unsupported revisions and decoder depth fall back safely")
 

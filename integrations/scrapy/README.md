@@ -1,7 +1,7 @@
 # pagedigest-scrapy
 
 A [Scrapy](https://scrapy.org) downloader middleware that **consumes** a
-[pagedigest v1](https://pagedigest.org) manifest: it skips re-fetching covered
+[pagedigest v1](https://pagedigest.org) manifest: it reuses cached responses for covered
 URLs whose `rev` hasn't changed since the last crawl, sends the optional
 cooperation header, and audits a fraction of skips against publisher digests.
 
@@ -15,8 +15,9 @@ in [`docs/consumer-integration.md`](../../docs/consumer-integration.md).
 ## What it does, mapped to the spec
 
 - **site_rev fast path + per-URL `rev` compare (§3.1, §3.2).** A URL whose
-  manifest `rev` equals the value cached from the last crawl is skipped via
-  `IgnoreRequest`.
+  manifest `rev` equals the cached revision is served from intact stored bytes.
+  Spider callbacks still run, preserving link-following traversal. Missing or
+  corrupted response bodies force a download.
 - **Cooperation header (§5.4).** Attaches `PageDigest-State: site_rev=N;
   manifest="/.well-known/pagedigest.json"` to page requests after reading the
   manifest, built to the ABNF (no leading zeros, path-safe). Only ever sends a
@@ -41,7 +42,8 @@ in [`docs/consumer-integration.md`](../../docs/consumer-integration.md).
   coverage, or an oversized (>10 MB) manifest all resolve to normal crawling.
   A per-URL `rev` decrease is treated as anomalous for that URL: the page is
   fetched conventionally and the stored high-water `rev` is not lowered.
-  The middleware can make a crawl slower-by-a-manifest-fetch, but never *wrong*.
+  Manifest fallback does not guarantee application correctness: downstream storage,
+  discovery, and representation scope still need appropriate policies.
 
 ## Status
 
@@ -51,8 +53,9 @@ The SQLite adapter supports revisions from `0` through `2**63 - 1`. A manifest
 with a larger site or entry revision falls back to normal crawling before any
 revision state is saved. This is an adapter limit, not a protocol limit.
 
-Offline decision-logic tests (`tests/test_offline.py`) run in
-`./tools/run_checks.sh` / CI; end-to-end Scrapy reactor demos stay manual.
+Offline tests and a real two-run link-following crawl (`tests/test_traversal.py`)
+run in `./tools/run_checks.sh`. The warm run must reach a changed child through
+an unchanged cached parent. Current-source replay is not a released adapter.
 
 ## Install & enable
 
@@ -122,3 +125,25 @@ and site-distrust escalation.
   it's an estimate of avoided transfer, not a live measurement.
 - Trust state is per-origin and local. Cross-consumer / federated reputation is
   out of scope here (and deferred in the spec).
+
+
+## Cached response replay and scope
+
+The default adapter preserves callbacks by returning a cached Scrapy response,
+not by dropping the request. SQLite stores response bodies and headers alongside
+revisions; legacy stores without bodies refetch once. Cache-body integrity and
+any current manifest digest must agree before reuse. `PAGEDIGEST_MAX_CACHE_BYTES`
+limits stored responses (default 10 MiB); oversized bodies are fetched normally.
+Authenticated/cookie/range requests, private or no-store responses, non-200
+representations, Set-Cookie, and unsupported Vary responses are not reused.
+
+The SQLite store is per consumer. Retain it across runs, but allow eviction to
+fall back to network fetching. Replay preserves traversal for unchanged parents;
+it does not discover newly added pages that are not linked or independently
+scheduled. Use normal discovery or an explicit manifest-driven frontier for that
+requirement, especially with partial coverage.
+
+`pagedigest/skipped` counts avoided network downloads, not suppressed callbacks.
+The synchronous manifest fetch is outside Scrapy's downloader request counter;
+include `pagedigest/manifests_loaded` and failed manifest attempts when evaluating
+requests. Use server logs or the repository HTTP benchmark for complete counts.

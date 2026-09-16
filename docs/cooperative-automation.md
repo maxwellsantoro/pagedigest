@@ -12,13 +12,13 @@ one header:
 
 | Observed pattern | Interpretation | Suggested treatment |
 |---|---|---|
-| Manifest fetch, changed-URL fetches, matching state | Cooperative | Higher limits; lower bot suspicion |
-| Page fetches with no manifest access | Non-cooperative or unaware | Normal or tighter bot policy |
+| Manifest fetch, changed-URL fetches, matching state | Consistent with incremental reuse | Record alongside existing traffic policy |
+| Page fetches with no manifest access | May be unaware, stateless, or using shared manifest caches | Normal traffic policy; offer discovery |
 | Impossible future or persistently stale state | Broken client or probing | Ignore the signal; investigate or downgrade |
-| Matching state plus unchanged covered-page overfetch | Non-compliant | Rate-limit with logged evidence |
+| Matching state plus repeated unchanged covered-page fetches | May reflect cache loss, audits, independent users, or different representations | Investigate request cost and context; do not infer non-compliance |
 | Header with no corroborating manifest fetch | Weak signal | Ignore until corroborated |
 
-The useful metric is the unchanged-page overfetch ratio:
+A descriptive metric is the unchanged-page request ratio (it does not establish unnecessary work):
 
 ```text
 unchanged covered page requests / all covered page requests
@@ -30,7 +30,7 @@ address rotation can merge or split clients. Prefer an authenticated account,
 declared crawler identity with verification, mTLS identity, or another signal
 the publisher already trusts; otherwise keep the classification conservative.
 
-## nginx: log first, enforce from evidence
+## nginx: log request observations
 
 This configuration extracts only the strict reserved syntax and writes it into
 a JSON access log. It deliberately does not rate-limit merely because a header

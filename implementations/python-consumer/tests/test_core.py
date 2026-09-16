@@ -530,7 +530,7 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(result["removed"], [])
         self.assertEqual(result["changed"], ["/blog/a"])
 
-    def test_diff_site_rev_equal_short_circuits(self) -> None:
+    def test_diff_site_rev_equal_checks_available_revisions(self) -> None:
         manifest = {
             "version": 1,
             "generated": "2026-04-17T12:00:00Z",
@@ -539,9 +539,9 @@ class CoreTests(unittest.TestCase):
         }
         result = diff(manifest, cached_site_rev=10, cached_revs={"/": 1})
         self.assertFalse(result["site_changed"])
-        self.assertEqual(result["changed"], [])
-        self.assertEqual(result["new"], [])
-        self.assertEqual(result["unchanged"], ["/", "/about"])
+        self.assertEqual(result["changed"], ["/"])
+        self.assertEqual(result["new"], ["/about"])
+        self.assertEqual(result["unchanged"], [])
 
     def test_diff_rev_decrease_lists_fallback_urls(self) -> None:
         manifest = {

@@ -64,6 +64,8 @@ def run_rust(site_dir: Path, manifest_path: Path, state_path: Path) -> dict:
         "--coverage",
         "complete",
     ]
+    if not state_path.exists():
+        cmd.append("--init")
     subprocess.run(cmd, cwd=GENERATOR_DIR, check=True)
     return json.loads(manifest_path.read_text(encoding="utf-8"))
 
@@ -74,7 +76,8 @@ import {{ generateManifest }} from {json.dumps(ASTRO_SRC.resolve().as_uri())};
 const result = await generateManifest({{
   outputDir: {json.dumps(str(site_dir))},
   statePath: {json.dumps(str(state_path))},
-  output: ".well-known/pagedigest.json",
+  output: "astro-manifest.json",
+  initialize: {str(not state_path.exists()).lower()},
   includeExtensions: [".html", ".htm"],
   withDigest: true,
   coverage: {{ mode: "complete" }},
@@ -220,7 +223,7 @@ def main() -> int:
             )
             check_reconcile_progression(
                 site_astro,
-                site_astro / ".well-known" / "pagedigest.json",
+                site_astro / "astro-manifest.json",
                 tmp_path / "astro-state.json",
                 lambda: run_astro(site_astro, tmp_path / "astro-state.json"),
                 base_url,

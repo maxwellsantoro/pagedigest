@@ -5,8 +5,18 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 
-import pagedigest, { generateManifest, urlKeyForHtml } from "../src/index.js";
+import pagedigest, { generateManifest as generateRaw, urlKeyForHtml } from "../src/index.js";
 import { build } from "astro";
+
+// Test fixtures explicitly initialize once; production generation never guesses.
+async function generateManifest(options) {
+  let initialize = false;
+  try { await readFile(options.statePath); } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    initialize = true;
+  }
+  return generateRaw({ ...options, initialize });
+}
 
 async function fixture() {
   return mkdtemp(path.join(tmpdir(), "pagedigest-astro-"));
@@ -252,7 +262,7 @@ test("runs inside a real Astro build and rejects subpath deployments", async () 
         `import pagedigest from ${JSON.stringify(integrationUrl)};`,
         "export default {",
         '  output: "static",',
-        '  integrations: [pagedigest({ state: "pagedigest-state.json" })],',
+        '  integrations: [pagedigest({ state: "pagedigest-state.json", initialize: true })],',
         "};",
         "",
       ].join("\n"),
@@ -323,4 +333,29 @@ test("failed writes cannot expose unreserved revisions", async () => {
       await rm(root, { recursive: true, force: true });
     }
   }
+});
+
+
+test("state loss fails closed and recovery reserves retired-key floor", async () => {
+  const root = await fixture();
+  try {
+    const outputDir = path.join(root, "dist"), statePath = path.join(root, "state.json");
+    await mkdir(outputDir);
+    await writeFile(path.join(outputDir, "index.html"), "A");
+    await assert.rejects(generateRaw({ outputDir, statePath }), /missing durable state/);
+    await generateRaw({ outputDir, statePath, initialize: true });
+    await assert.rejects(generateRaw({ outputDir, statePath, initialize: true }), /already exists/);
+    await rm(statePath);
+    await writeFile(path.join(outputDir, "index.html"), "B");
+    await assert.rejects(generateRaw({ outputDir, statePath }), /missing durable state/);
+    await assert.rejects(generateRaw({ outputDir, statePath, initialize: true }), /manifest already exists/);
+    const recovered = await generateRaw({ outputDir, statePath, recoverFloor: 90 });
+    assert.equal(recovered.manifest.site_rev, 91);
+    assert.equal(recovered.manifest.entries["/"].rev, 91);
+    await writeFile(path.join(outputDir, "retired.html"), "unknown historical page");
+    const added = await generateRaw({ outputDir, statePath });
+    assert.equal(added.manifest.entries["/retired.html"].rev, 91);
+    await writeFile(`${statePath}.lock`, "held");
+    await assert.rejects(generateRaw({ outputDir, statePath }), /EEXIST/);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

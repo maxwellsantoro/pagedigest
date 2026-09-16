@@ -95,6 +95,12 @@ class VectorBundleTests(unittest.TestCase):
         self.assertEqual(result["changed"], [])
         self.assertEqual(result["fallback_urls"], [])
 
+    def test_equal_site_revision_with_incomplete_cache(self) -> None:
+        manifest = read_json(VECTORS / "equal-site-incomplete-cache.json")
+        result = diff(manifest, cached_site_rev=7, cached_revs={"/stale": 2})
+        self.assertEqual(result["new"], ["/missing"])
+        self.assertEqual(result["changed"], ["/stale"])
+
     def test_complete_removal_vector(self) -> None:
         prev = read_json(VECTORS / "complete-removal-prev.json")
         nxt = read_json(VECTORS / "complete-removal-next.json")

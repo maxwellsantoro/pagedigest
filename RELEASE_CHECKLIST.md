@@ -63,3 +63,22 @@ Link: </.well-known/pagedigest.json>; rel="https://pagedigest.org/rel"
 ```
 
 Valid as an RFC 8288 extension relation until a short token is registered. Drafts: [docs/registrations/](./docs/registrations/).
+
+
+## Next implementation release: consumer safety
+
+These gates are separate from the historical v1.0 wire-format gate above.
+
+- [x] Missing publisher state fails without explicit initialization/recovery.
+- [x] Recovery preserves a floor for previously retired URLs; publication is serialized.
+- [x] Equal site revisions and HTTP 304 cannot conceal missing/older local results.
+- [x] Persistent example executes audits, retains completed snapshots, and retries inconclusive outcomes.
+- [x] Real Scrapy traversal reaches a changed child through an unchanged parent.
+- [x] Built wheel and npm tarball are installed and exercised outside source imports in repository checks.
+- [x] Controlled benchmark asserts equivalent byte content and resource sets before reporting costs.
+- [ ] Assign new component versions and test the exact distributions intended for publication.
+- [ ] Publish new artifacts and smoke-test documented registry installations.
+- [ ] Deploy updated site and reconcile/audit its new served digests.
+- [ ] Independently operated consumer demonstrates equal results and freshness over recurring deployments.
+
+Do not mark the last four complete from source tests or local benchmark results.

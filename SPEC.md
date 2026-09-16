@@ -95,7 +95,7 @@ A monotonically increasing integer representing the overall state of the site. T
 
 If `coverage` is present, changes to `coverage.mode` or to the `coverage.prefixes` list alter omission semantics and therefore MUST increment `site_rev`.
 
-Consumers use `site_rev` as a fast path: a consumer whose cached `site_rev` matches the manifest's `site_rev` knows that no URLs on the site have changed since its last visit and MAY skip processing the `entries` map entirely.
+Consumers use `site_rev` as a fast path: a consumer whose cached `site_rev` matches the manifest's `site_rev` has a publisher assertion that the covered resource set has not changed. It MAY skip processing `entries` only if its required results for that revision are complete and still available. An observed revision alone does not establish a completed consumer cache. Unlisted resources receive no unchanged guarantee.
 
 **`entries`** (required, object)
 
@@ -174,7 +174,7 @@ Publishers SHOULD ensure that the content being hashed is deterministic with res
 
 Publishers whose rendered bytes contain unavoidable non-content churn SHOULD omit `digest` for those URLs unless they can make the full identity-encoded bytes stable enough for trustworthy audits.
 
-Consumers MAY use `digest` to audit publisher claims: fetch the URL with `Accept-Encoding: identity`, compute the hash of the response, and compare. A mismatch indicates the publisher's manifest is inaccurate.
+Consumers MAY use `digest` to audit publisher claims: fetch the URL with `Accept-Encoding: identity`, compute the hash of the response, and compare. A mismatch indicates that the sampled response does not match the digest claim. A matching digest alone does not prove revision history: if a publisher reuses a revision with new content and a new digest, an audit against only the new digest can pass. Consumers retaining earlier digest/body evidence should conservatively refresh when it conflicts with a purportedly reusable result.
 
 Publishers are not required to include `digest`. Manifests without `digest` remain functionally useful — consumers can still use `rev` for change detection — but lose the ability to be audited.
 
@@ -205,6 +205,8 @@ A publisher that generates a `pagedigest` manifest is responsible for:
 5. Keeping the manifest reachable at `/.well-known/pagedigest.json` and responsive to normal HTTP requests.
 
 6. Regenerating the manifest when content changes, at a frequency consistent with the publisher's publishing cadence.
+
+The reference Rust and Astro generators conservatively detect full build-byte changes; they do not infer semantic significance. Omitting emitted digests does not alter that comparison. Publishers needing semantic revisions must supply a suitable change signal. Exact-byte mirrors must use a producer that tracks byte changes or retain independent HTTP validation, since a semantic revision may deliberately ignore incidental byte changes.
 
 The recommended implementation is to generate the manifest at build time for static sites, or to generate it in response to content-change events for CMS-backed sites. Runtime generation on every request is possible but unnecessary and adds serving cost.
 
@@ -259,11 +261,24 @@ A consumer that respects `pagedigest` manifests follows this algorithm when craw
 
 1. Fetch `/.well-known/pagedigest.json`. If the fetch fails (404, timeout, invalid JSON), fall back to the consumer's default crawling behavior for this site.
 
-2. Compare the manifest's `site_rev` against the consumer's cached value for this site. If equal, no URLs have changed; update the consumer's last-checked record and terminate this crawl cycle without fetching individual URLs. If greater, proceed to step 3 below. If less than cached, treat the manifest as anomalous and fall back to default behavior.
+2. Compare the manifest's `site_rev` against the consumer's cached value. If less than cached, treat the manifest as anomalous and fall back to default behavior. Equality permits reuse only for covered URLs whose required local results are complete and still available at the corresponding revision. Missing, evicted, failed, or older local results still require fetching. Consumers MUST NOT use equality to suppress required work on unlisted URLs. Otherwise proceed to step 3. Scheduled audits remain applicable during no-change cycles.
 
-3. For each entry in the manifest's `entries` map, entry lookup and cache comparison are keyed by the pre-redirect request URL, byte-exact against manifest keys. Consumers MUST NOT rewrite keys based on redirect targets. If the consumer has no cached `rev` for this URL, the URL is new: fetch it and record the manifest's `rev`. If the manifest's `rev` is greater than cached `rev`, the URL has changed: fetch it and update cached `rev`. If equal, do not fetch. If less than cached, treat as anomalous and fall back to default behavior for this URL.
+3. For each entry in the manifest's `entries` map, entry lookup and cache comparison are keyed by the pre-redirect request URL, byte-exact against manifest keys. Consumers MUST NOT rewrite keys based on redirect targets. If the consumer has no cached `rev` for this URL, the URL is new: fetch it and record the manifest's `rev`. If the manifest's `rev` is greater than cached `rev`, the URL has changed: fetch it and update cached `rev`. If equal and the corresponding local result is usable, the download MAY be skipped; otherwise fetch it. If less than cached, treat as anomalous and fall back to default behavior for this URL.
 
 4. For URLs previously seen by the consumer that are no longer listed in the manifest: if `coverage.mode` is `complete`, omission is a positive signal that the URL is no longer part of the publisher's covered set and SHOULD be treated as removed from coverage. If `coverage.mode` is `prefixes` or `coverage` is absent, omission remains ambiguous and SHOULD be treated as "not described here" rather than implicitly unchanged.
+
+### 5.1.1 Completed consumer state
+
+Consumers MUST distinguish a manifest observation from completion of the work it requires.
+Only record a reusable per-URL revision after the required download and processing succeed.
+When local results are lost or invalidated, their cached revisions MUST NOT authorize skipping.
+A `304 Not Modified` validates a previously stored manifest representation, not page bodies
+or downstream results. Consumers without that stored manifest must fetch it unconditionally.
+
+A skipped network download does not necessarily mean skipped processing. Link-following
+crawlers must replay cached responses or retain a complete discovery frontier so that an
+unchanged parent cannot hide changed descendants. Partial manifests do not replace normal
+discovery or deletion reconciliation outside their described set.
 
 ### 5.2 Auditing
 
@@ -279,7 +294,7 @@ A consumer MAY periodically audit `digest` values to verify publisher honesty. T
 
 The `digest` corresponds to the listed URL's successful identity-encoded representation. Redirect responses and non-success responses encountered during audit are inconclusive outcomes, not hash targets. Consumers MAY retry or temporarily reduce trust, but SHOULD NOT hash redirect bodies as substitutes for the listed URL.
 
-A mismatch indicates the publisher's manifest is inaccurate. The consumer SHOULD respond by reducing trust in the publisher's manifest, increasing the audit rate, or falling back to unconditional fetching for the publisher's URLs.
+A mismatch indicates that the sampled response does not match the digest claim. A matching digest alone does not prove revision history: if a publisher reuses a revision with new content and a new digest, an audit against only the new digest can pass. Consumers retaining earlier digest/body evidence should conservatively refresh when it conflicts with a purportedly reusable result. On a mismatch, the consumer SHOULD respond by reducing trust in the publisher's manifest, increasing the audit rate, or falling back to unconditional fetching for the publisher's URLs.
 
 If a mismatch is observed immediately after a newly observed `generated` timestamp or `site_rev` increment, consumers SHOULD treat it as potentially transient and MAY retry before downgrading trust.
 
@@ -360,7 +375,7 @@ The header means: "Before this request, I checked this origin's manifest and obs
 
 #### 5.4.1 Why the initial signal does not require cryptography
 
-To send a plausible current revision, a client ordinarily has to fetch the manifest, which is already half of the cooperative behavior. The remaining question—whether it fetches covered URLs whose revisions did not change—is visible in the publisher's own request logs. A matching state value combined with low unchanged-page overfetch is therefore self-corroborating behavior, regardless of the client's stated intent.
+A plausible current revision is consistent with a manifest observation, possibly through a shared cache. Request logs can describe fetch patterns but cannot establish that repeated requests were unnecessary: audits, missing results, independent users, and representation differences remain possible. Use the header as context for existing traffic policy, not as proof of compliance or intent.
 
 The header alone remains weak evidence. Publishers should ignore it unless corroborated by manifest access and fetch behavior. Impossible future revisions, persistently stale revisions, or a matching revision paired with unchanged-page overfetch are inexpensive anomaly signals; they are not cryptographic findings.
 
@@ -408,8 +423,10 @@ A manifest exposes the complete list of URLs covered on a site, including URLs t
 | `ETag` / `If-None-Match` / 304 | Per-representation conditional validation | It still requires one request per URL. `pagedigest` can skip the entire covered set when `site_rev` is unchanged. A changed URL may still be fetched conditionally with an ETag. |
 | `Last-Modified` / `If-Modified-Since` | Timestamp-based conditional validation | It is also per-resource and subject to timestamp granularity. `pagedigest` uses explicit monotonic state across the covered set. |
 | RSS / Atom | A feed of recent entries | A feed does not establish that every omitted or older covered page stayed unchanged. |
+| ResourceSync | Resource lists, change lists, hashes, and synchronization discovery | A richer XML/Sitemap-based framework. PageDigest chooses a smaller JSON surface and explicit revision rules; it does not claim to invent bulk change discovery. |
+| URL-to-fingerprint manifest | Bulk content comparison; manifest ETags provide a no-change shortcut | Avoids historical counters. PageDigest counters provide ordering and can separate semantic revisions from byte digests, at the cost of durable publisher history. |
 | IndexNow | Publisher submission of changed URLs to participating search engines | It is a publisher-to-engine push channel with ownership-key verification, not a stateless manifest arbitrary consumers can pull. |
-| WebSub | Hub-mediated push subscriptions | It requires hub and subscription/callback state. `pagedigest` is stateless pull. |
+| WebSub | Hub-mediated push subscriptions | It requires hub and subscription/callback state. `pagedigest` uses pull without subscription callbacks; useful incremental consumers still retain local state. |
 | Website monitors | Private change alerts for one watcher | `pagedigest` is a public change surface reusable by many independent consumers. |
 | CDN / HTTP cache | Stores responses so repeated serving is cheaper | A cache still serves or validates the read. `pagedigest` lets a stateful consumer avoid many reads. |
 
@@ -527,3 +544,5 @@ A manifest covering only a subset of a site — the publisher has opted to descr
 ```
 
 URLs outside `/blog/` on this site are not covered by the manifest and receive default crawler behavior.
+
+ResourceSync primary reference: [ANSI/NISO Z39.99-2017 framework](https://www.openarchives.org/rs/1.1/resourcesync_highlighted).

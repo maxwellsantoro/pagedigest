@@ -13,13 +13,23 @@ from typing import Any
 
 import requests
 
-from pagedigest import check_site, resolve_url_key
+from pagedigest import audit, check_site, manifest_url, resolve_url_key
 
 DEFAULT_MAX_PAGE_BYTES = 10 * 1024 * 1024
 
 
 def empty_state() -> dict[str, Any]:
-    return {"site_rev": None, "revs": {}, "etag": None, "last_modified": None, "pages": {}}
+    return {
+        "site_rev": None,
+        "revs": {},
+        "etag": None,
+        "last_modified": None,
+        "pages": {},
+        "body_hashes": {},
+        "manifest": None,
+        "origin": None,
+        "distrusted": False,
+    }
 
 
 def load_state(path: Path) -> dict[str, Any]:
@@ -47,6 +57,16 @@ def load_state(path: Path) -> dict[str, Any]:
         for key, value in pages.items()
     ):
         raise ValueError("cache state has an invalid page map")
+    hashes = state.get("body_hashes", {})
+    if not isinstance(hashes, dict) or any(
+        not isinstance(key, str)
+        or not isinstance(value, str)
+        or len(value) != 71
+        or not value.startswith("sha256:")
+        or any(ch not in "0123456789abcdef" for ch in value[7:])
+        for key, value in hashes.items()
+    ):
+        raise ValueError("cache state has invalid body hashes")
     for field in ("etag", "last_modified"):
         if state.get(field) is not None and not isinstance(state[field], str):
             raise ValueError(f"cache state has an invalid {field}")
@@ -137,66 +157,118 @@ def run_cycle(
     *,
     session: requests.Session | None = None,
     max_page_bytes: int = DEFAULT_MAX_PAGE_BYTES,
+    sample_audit_rate: float = 0.01,
 ) -> int:
+    """Serialize writers; a stale lock after a crash requires operator review."""
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    lock = Path(str(state_path) + ".lock")
+    descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    try:
+        return _run_cycle(
+            base_url,
+            state_path,
+            pages_dir,
+            session=session,
+            max_page_bytes=max_page_bytes,
+            sample_audit_rate=sample_audit_rate,
+        )
+    finally:
+        os.close(descriptor)
+        lock.unlink()
+
+
+def _run_cycle(base_url, state_path, pages_dir, *, session, max_page_bytes, sample_audit_rate):
     state = load_state(state_path)
+    origin = manifest_url(base_url)
+    if state.get("origin") not in (None, origin):
+        raise ValueError("cache belongs to another origin; use a separate state file")
     client = session or requests.Session()
+    # Metadata is reusable only while its corresponding body is still present
+    # and intact. Legacy state without body hashes is refreshed once.
+    available = {}
+    for key, rev in state["revs"].items():
+        filename = state["pages"].get(key)
+        expected = state.get("body_hashes", {}).get(key)
+        if filename and expected and not state.get("distrusted"):
+            try:
+                actual = "sha256:" + hashlib.sha256((pages_dir / filename).read_bytes()).hexdigest()
+                if actual == expected:
+                    available[key] = rev
+            except FileNotFoundError:
+                pass
     decision = check_site(
         base_url,
         cached_site_rev=state["site_rev"],
-        cached_revs=state["revs"],
+        cached_revs=available,
         etag=state["etag"],
         last_modified=state["last_modified"],
-        sample_audit_rate=0.01,
+        sample_audit_rate=sample_audit_rate,
         session=client,
+        cached_manifest=state.get("manifest"),
     )
-
     if decision.get("fallback"):
-        print(f"fallback to normal crawl: {decision.get('error')}")
+        print(f"fallback to normal crawl required: {decision.get('error')}")
         return 1
 
-    if decision.get("not_modified"):
-        state["etag"] = decision.get("etag") or state["etag"]
-        state["last_modified"] = decision.get("last_modified") or state["last_modified"]
-        save_state(state_path, state)
-        print("manifest not modified; no page fetches needed")
-        return 0
+    # Audits run even after a 304. A matching current digest alone is insufficient:
+    # also compare the observed bytes with the local representation being reused.
+    for candidate in decision.get("audit_candidates", []):
+        result = audit(base_url, candidate["url"], candidate["digest"], session=client, max_bytes=max_page_bytes)
+        if result["result"] == "inconclusive":
+            print(f"audit inconclusive; retry cycle: {candidate['url']}")
+            return 1
+        if result["result"] == "mismatch" or result.get("computed") != state["body_hashes"].get(candidate["url"]):
+            state["distrusted"] = True
+            save_state(state_path, state)
+            print("audit failed; revisions retained; next cycle refreshes all covered bodies")
+            return 1
 
     manifest = decision["manifest"]
     updated_pages = dict(state["pages"])
+    body_hashes = dict(state.get("body_hashes", {}))
+    pages_dir.mkdir(parents=True, exist_ok=True)
     try:
-        for url_key in decision["new"] + decision["changed"]:
-            filename = page_filename(url_key)
-            fetch_page(
-                client,
-                resolve_url_key(base_url, url_key),
-                pages_dir / filename,
-                max_bytes=max_page_bytes,
-            )
-            updated_pages[url_key] = filename
-            print(f"fetched {url_key} -> {filename}")
+        # Content-addressed bodies keep the last committed snapshot intact if a
+        # later fetch fails. Unreferenced bodies can be garbage-collected offline.
+        with tempfile.TemporaryDirectory(dir=pages_dir) as staging:
+            for url_key in decision["new"] + decision["changed"]:
+                destination = Path(staging) / "body"
+                fetch_page(client, resolve_url_key(base_url, url_key), destination, max_bytes=max_page_bytes)
+                digest = "sha256:" + hashlib.sha256(destination.read_bytes()).hexdigest()
+                expected = manifest["entries"][url_key].get("digest")
+                if expected and expected != digest:
+                    state["distrusted"] = True
+                    save_state(state_path, state)
+                    print(f"download digest mismatch; retry after publisher repair: {url_key}")
+                    return 1
+                filename = digest.removeprefix("sha256:") + ".body"
+                os.replace(destination, pages_dir / filename)
+                updated_pages[url_key] = filename
+                body_hashes[url_key] = digest
+                print(f"fetched {url_key}")
     except (OSError, requests.RequestException, RuntimeError, ValueError) as exc:
-        print(f"page fetch failed; cache state not advanced: {exc}")
+        print(f"page fetch failed; cache revisions not advanced: {exc}")
         return 1
 
     if (manifest.get("coverage") or {}).get("mode") == "complete":
         updated_pages = {key: value for key, value in updated_pages.items() if key in manifest["entries"]}
-
-    new_state = {
-        "site_rev": decision["site_rev"],
-        "revs": next_revs(state["revs"], manifest),
-        "etag": decision.get("etag"),
-        "last_modified": decision.get("last_modified"),
-        "pages": updated_pages,
-    }
-    save_state(state_path, new_state)
-
-    for url_key in decision["removed"]:
-        old_filename = state["pages"].get(url_key)
-        if old_filename:
-            (pages_dir / old_filename).unlink(missing_ok=True)
-        print(f"removed cached entry {url_key}")
-
-    print(f"saved state to {state_path}")
+        body_hashes = {key: value for key, value in body_hashes.items() if key in manifest["entries"]}
+    save_state(
+        state_path,
+        {
+            "site_rev": decision["site_rev"],
+            "revs": next_revs(state["revs"], manifest),
+            "etag": decision.get("etag") or (state["etag"] if decision.get("not_modified") else None),
+            "last_modified": decision.get("last_modified")
+            or (state["last_modified"] if decision.get("not_modified") else None),
+            "pages": updated_pages,
+            "body_hashes": body_hashes,
+            "manifest": manifest,
+            "origin": origin,
+            "distrusted": False,
+        },
+    )
+    print(f"saved completed snapshot to {state_path}")
     return 0
 
 
@@ -206,12 +278,17 @@ def main() -> int:
     parser.add_argument("state", type=Path)
     parser.add_argument("--pages", type=Path, help="cached body directory (default: <state>.pages)")
     parser.add_argument("--max-page-bytes", type=int, default=DEFAULT_MAX_PAGE_BYTES)
+    parser.add_argument("--audit-rate", type=float, default=0.01)
     args = parser.parse_args()
+    if not 0 <= args.audit_rate <= 1:
+        parser.error("--audit-rate must be between 0 and 1")
     if args.max_page_bytes < 1:
         parser.error("--max-page-bytes must be positive")
     pages_dir = args.pages or Path(str(args.state) + ".pages")
     try:
-        return run_cycle(args.base_url, args.state, pages_dir, max_page_bytes=args.max_page_bytes)
+        return run_cycle(
+            args.base_url, args.state, pages_dir, max_page_bytes=args.max_page_bytes, sample_audit_rate=args.audit_rate
+        )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"invalid cache state: {exc}")
         return 1

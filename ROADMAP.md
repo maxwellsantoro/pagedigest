@@ -2,7 +2,23 @@
 
 **Now:** v1.0 — stable wire format, shipped reference implementations and packages, dogfood on [pagedigest.org](https://pagedigest.org). Gates: [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
 
-**Next:** Post-1.0 reserved work and adoption (additional SSGs, measured consumers, IANA short-form `rel` when assigned). See [Post-1.0](#post-10-reserved).
+**Next:** safe consumer reuse, clean artifact release validation, and an independently
+operated benchmark with equivalent results and freshness. Additional publisher
+integrations and v1.1 features follow that evidence.
+
+## Consumer safety milestone (current source; not yet released)
+
+- Implemented: explicit publisher initialization/recovery, incomplete-cache checks,
+  real 304 audits, and Scrapy cached-response replay with a traversal regression.
+- Implemented: clean wheel/npm-tarball installation checks and a controlled local
+  comparison with conditional HTTP, accurate sitemap, and fingerprint baselines.
+- Remaining release work: assign new package versions, validate exact release
+  artifacts, publish them, and verify clean registry installs.
+- Remaining adoption evidence: an independent operator, deployment failure and
+  recovery observations, and equivalent-result/freshness measurements. Local
+  fixtures and sibling deployments do not satisfy this milestone.
+
+Acceptance and measured fixture results: [benchmark notes](./docs/benchmarks/README.md).
 
 The cross-project execution order that got us here was trust hygiene first, then the v1 spec clarifications (`PageDigest-State`, prior-art, and audit economics), measured dotrepo dogfood, agent consumption, and then broad distribution.
 
@@ -90,4 +106,4 @@ discovery, and additional hash algorithms remain reserved; see [SPEC.md](./SPEC.
 
 ## Contribute
 
-Open an issue referencing a phase. Highest leverage now: **adopter feedback**, **additional producer case studies**, and **additional SSG integrations**.
+Open an issue referencing a phase. Highest leverage now: **safe recurring consumer integrations**, **independent equivalent-result benchmarks**, and **release-artifact verification**.

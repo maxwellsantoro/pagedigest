@@ -12,6 +12,7 @@ Agents: [AGENTS.md](../AGENTS.md) (symlinked as `CLAUDE.md`).
 | [ecosystem.md](./ecosystem.md) | Both | Relationship with [dotrepo](https://dotrepo.org) |
 | [DOGFOOD_TEMPLATE.md](./DOGFOOD_TEMPLATE.md) | Publishers | Template for deployment case studies |
 | [case-studies/dotrepo.md](./case-studies/dotrepo.md) | Publishers & consumers | Measured dotrepo.org dogfood deployment |
+| [benchmarks/README.md](./benchmarks/README.md) | Consumers & maintainers | Controlled equivalent-result comparison and independent-adoption acceptance criteria |
 | [consumer-integration.md](./consumer-integration.md) | Consumers | Crawler, indexer, mirror, and agent integration guide |
 | [cooperative-automation.md](./cooperative-automation.md) | Publishers & intermediaries | `PageDigest-State` logging, classification, nginx, and Cloudflare recipes |
 | [announcements/v1-rc.md](./announcements/v1-rc.md) | Adopters & maintainers | Historical v1 RC announcement (protocol is v1.0) |

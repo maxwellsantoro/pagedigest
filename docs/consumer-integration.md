@@ -15,10 +15,10 @@ your normal crawl behavior.
 2. Validate the wire format.
 3. Compare `site_rev` and per-URL `rev` values with your cached state.
 4. Fetch only new and changed URLs.
-5. Remove cached URLs only when manifest `coverage.mode` is `complete`.
+5. Apply coverage removals only when `coverage.mode` is `complete`; this is not proof of an HTTP deletion.
 6. Persist the new manifest state after the fetch cycle succeeds.
 
-The Python reference consumer packages that loop as `check_site`:
+The Python reference consumer plans work with `check_site`; this integration sketch leaves storage and audit policy to the caller. Use the runnable persistent example below for a complete body-cache workflow:
 
 ```python
 from pagedigest import check_site, resolve_url_key
@@ -26,19 +26,22 @@ from pagedigest import check_site, resolve_url_key
 decision = check_site(
     "https://example.com",
     cached_site_rev=state.get("site_rev"),
-    cached_revs=state.get("revs") or {},
+    cached_revs=available_result_revs(),  # only results still present and usable
     etag=state.get("etag"),
     last_modified=state.get("last_modified"),
     sample_audit_rate=0.01,
+    cached_manifest=state.get("manifest"),
 )
 
 if decision.get("fallback"):
     run_normal_crawl(reason=decision.get("error"))
-elif decision.get("not_modified"):
-    skip_cycle()
 else:
     for url_key in decision["new"] + decision["changed"]:
         fetch_page(resolve_url_key("https://example.com", url_key))
+    for candidate in decision["audit_candidates"]:
+        # Execute audit(), handle mismatch/inconclusive, and compare with cached
+        # representation evidence before committing a completed snapshot.
+        run_and_handle_audit(candidate)
 ```
 
 See the persistent cache example at
@@ -144,3 +147,23 @@ publisher-side logging and classification patterns.
 - [ ] `PageDigest-State` is emitted only after a valid manifest observation.
 - [ ] Metrics track skipped fetches, manifest failures, anomalies, audit
       mismatches, and inconclusive audit results.
+
+
+## Traversal and cache completeness
+
+A manifest observation and a completed local snapshot are different states.
+Check that referenced results still exist before reusing their revisions. Equality
+of `site_rev`, or HTTP 304, never supplies missing bodies or completes interrupted
+processing. Current-source `check_site` requires a cached validated manifest for
+conditional requests and still returns download and audit work after a 304.
+
+The Scrapy adapter replays stored responses for unchanged pages. Spider callbacks
+therefore run again and can discover changed children. This saves downloads, not
+necessarily parsing. Sites outside public deterministic representation scope need
+ordinary validation. Independent frontiers and processed index records remain the
+consumer's responsibility. Do not treat manifest omission under partial coverage
+as unchanged or deleted; continue normal discovery and reconciliation there.
+
+These safety interfaces require Python consumer 0.2.0 or later.
+The repository gate builds and tests a wheel in an isolated environment. Release
+validation must additionally check the exact artifacts intended for publication.

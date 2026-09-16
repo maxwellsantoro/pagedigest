@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, writeFile, open, unlink, access } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -111,23 +111,33 @@ async function walkFiles(root, includeExtensions, outputPath) {
   return files;
 }
 
-async function readState(statePath) {
-  try {
-    const parsed = JSON.parse(await readFile(statePath, "utf8"));
-    if (typeof parsed === "object" && parsed !== null) {
-      return {
-        site_rev: Number.isInteger(parsed.site_rev) && parsed.site_rev >= 0 ? parsed.site_rev : 0,
-        coverage: parsed.coverage,
-        entries: typeof parsed.entries === "object" && parsed.entries !== null ? parsed.entries : {},
-        retired: typeof parsed.retired === "object" && parsed.retired !== null ? parsed.retired : {},
-      };
-    }
-  } catch (error) {
-    if (error.code !== "ENOENT") {
-      throw error;
-    }
+async function exists(file) {
+  try { await access(file); return true; }
+  catch (error) { if (error.code === "ENOENT") return false; throw error; }
+}
+
+async function readState(statePath, options, manifestPath) {
+  const present = await exists(statePath);
+  if (options.initialize || options.recoverFloor !== undefined) {
+    if (options.initialize && options.recoverFloor !== undefined) throw new Error("choose initialization or recovery");
+    if (present) throw new Error("state already exists; initialization/recovery cannot overwrite it");
+    if (options.initialize && await exists(manifestPath)) throw new Error("manifest already exists; restore or recover state");
+    const floor = options.recoverFloor ?? 0;
+    if (!Number.isSafeInteger(floor) || floor < 0 || floor >= Number.MAX_SAFE_INTEGER) throw new Error("invalid recovery floor");
+    return { site_rev: floor, revision_floor: floor, entries: {}, retired: {} };
   }
-  return { site_rev: 0, coverage: undefined, entries: {}, retired: {} };
+  if (!present) throw new Error("missing durable state; initialize explicitly for first publication or restore/recover state");
+  const parsed = JSON.parse(await readFile(statePath, "utf8"));
+  const validRev = value => Number.isSafeInteger(value) && value >= 0 && value < Number.MAX_SAFE_INTEGER;
+  if (!parsed || !validRev(parsed.site_rev) || !validRev(parsed.revision_floor ?? 0)
+      || !parsed.entries || typeof parsed.entries !== "object" || Array.isArray(parsed.entries)
+      || (parsed.retired && (typeof parsed.retired !== "object" || Array.isArray(parsed.retired)))) {
+    throw new Error("invalid durable state");
+  }
+  for (const entry of Object.values({ ...parsed.entries, ...parsed.retired })) {
+    if (!entry || !validRev(entry.rev) || typeof entry.content_hash !== "string") throw new Error("invalid durable entry state");
+  }
+  return { ...parsed, revision_floor: parsed.revision_floor ?? 0, retired: parsed.retired ?? {} };
 }
 
 function sha256(buffer) {
@@ -158,6 +168,15 @@ function utcNowIso(override) {
 }
 
 export async function generateManifest(options) {
+  const statePath = path.resolve(options.statePath);
+  await mkdir(path.dirname(statePath), { recursive: true });
+  const lockPath = `${statePath}.lock`;
+  const lock = await open(lockPath, "wx");
+  try { return await generateLocked(options); }
+  finally { await lock.close(); await unlink(lockPath); }
+}
+
+async function generateLocked(options) {
   const outputDir = path.resolve(options.outputDir);
   const outputPath = normalizeOutputPath(options.output ?? DEFAULT_OUTPUT);
   const statePath = path.resolve(options.statePath);
@@ -168,11 +187,11 @@ export async function generateManifest(options) {
   const observedAt = utcNowIso(options.generated);
   const generated = observedAt;
 
-  const previous = await readState(statePath);
+  const previous = await readState(statePath, options, path.join(outputDir, outputPath));
   const files = await walkFiles(outputDir, includeExtensions, outputPath);
   const nextEntries = {};
   const seenKeys = new Map();
-  let changed = changedCoverage(previous.coverage, coverage);
+  let changed = Boolean(options.initialize || options.recoverFloor !== undefined) || changedCoverage(previous.coverage, coverage);
 
   for (const file of files) {
     const urlKey = urlKeyForHtml(file.relative);
@@ -199,7 +218,7 @@ export async function generateManifest(options) {
         changed = true;
       }
     } else {
-      rev = Math.max(1, (previousEntry?.rev ?? 0) + 1);
+      rev = Math.max(1, (previousEntry?.rev ?? previous.revision_floor) + 1);
       modified = observedAt;
       changed = true;
     }
@@ -247,6 +266,7 @@ export async function generateManifest(options) {
   };
   const state = {
     site_rev: siteRev,
+    revision_floor: previous.revision_floor,
     coverage,
     entries: nextEntries,
     ...(Object.keys(nextRetired).length > 0 ? { retired: nextRetired } : {}),
@@ -278,6 +298,8 @@ export default function pagedigest(options = {}) {
         const result = await generateManifest({
           outputDir,
           statePath,
+          initialize: options.initialize,
+          recoverFloor: options.recoverFloor,
           output: options.output,
           includeExtensions: options.includeExtensions,
           withDigest: options.withDigest,

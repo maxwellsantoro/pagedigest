@@ -294,6 +294,7 @@ def main() -> int:
     case_ids = {c["id"] for c in index["cases"]}
     expected_ids = {
         "valid-minimal",
+        "equal-site-incomplete-cache",
         "valid-with-digest",
         "valid-partial-prefix",
         "valid-with-coverage-complete",
@@ -318,6 +319,7 @@ def main() -> int:
 
     valid_fixtures = [
         VECTORS / "valid-minimal.json",
+        VECTORS / "equal-site-incomplete-cache.json",
         VECTORS / "valid-with-digest.json",
         VECTORS / "valid-partial-prefix.json",
         VECTORS / "valid-with-coverage-complete.json",

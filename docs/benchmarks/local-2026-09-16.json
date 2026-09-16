@@ -1,0 +1,308 @@
+{
+  "fixture_pages": 100,
+  "body_profile": "repetitive static HTML, gzip enabled",
+  "scope": "controlled local HTTP experiment; not production, model-token, or independent-adoption evidence",
+  "freshness": "exact current bytes and resource set after every completed cycle",
+  "rows": [
+    {
+      "scenario": "cold",
+      "consumer": "full",
+      "requests": 101,
+      "response_body_wire_bytes": 7514,
+      "response_header_bytes": 21918,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.072216,
+      "equivalent": true
+    },
+    {
+      "scenario": "cold",
+      "consumer": "conditional-http",
+      "requests": 101,
+      "response_body_wire_bytes": 7514,
+      "response_header_bytes": 21918,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.064337,
+      "equivalent": true
+    },
+    {
+      "scenario": "cold",
+      "consumer": "sitemap-lastmod",
+      "requests": 101,
+      "response_body_wire_bytes": 7514,
+      "response_header_bytes": 21918,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.064888,
+      "equivalent": true
+    },
+    {
+      "scenario": "cold",
+      "consumer": "fingerprint-manifest",
+      "requests": 101,
+      "response_body_wire_bytes": 11412,
+      "response_header_bytes": 21919,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.065382,
+      "equivalent": true
+    },
+    {
+      "scenario": "cold",
+      "consumer": "pagedigest",
+      "requests": 101,
+      "response_body_wire_bytes": 11572,
+      "response_header_bytes": 21919,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.066701,
+      "equivalent": true
+    },
+    {
+      "scenario": "no-change",
+      "consumer": "full",
+      "requests": 101,
+      "response_body_wire_bytes": 7514,
+      "response_header_bytes": 21918,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.065827,
+      "equivalent": true
+    },
+    {
+      "scenario": "no-change",
+      "consumer": "conditional-http",
+      "requests": 101,
+      "response_body_wire_bytes": 324,
+      "response_header_bytes": 20418,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.065255,
+      "equivalent": true
+    },
+    {
+      "scenario": "no-change",
+      "consumer": "sitemap-lastmod",
+      "requests": 1,
+      "response_body_wire_bytes": 324,
+      "response_header_bytes": 218,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.000893,
+      "equivalent": true
+    },
+    {
+      "scenario": "no-change",
+      "consumer": "fingerprint-manifest",
+      "requests": 1,
+      "response_body_wire_bytes": 0,
+      "response_header_bytes": 202,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.000868,
+      "equivalent": true
+    },
+    {
+      "scenario": "no-change",
+      "consumer": "pagedigest",
+      "requests": 2,
+      "response_body_wire_bytes": 2120,
+      "response_header_bytes": 397,
+      "audit_requests": 1,
+      "elapsed_seconds": 0.002012,
+      "equivalent": true
+    },
+    {
+      "scenario": "sparse-change",
+      "consumer": "full",
+      "requests": 101,
+      "response_body_wire_bytes": 7558,
+      "response_header_bytes": 21918,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.071966,
+      "equivalent": true
+    },
+    {
+      "scenario": "sparse-change",
+      "consumer": "conditional-http",
+      "requests": 101,
+      "response_body_wire_bytes": 510,
+      "response_header_bytes": 20448,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.068438,
+      "equivalent": true
+    },
+    {
+      "scenario": "sparse-change",
+      "consumer": "sitemap-lastmod",
+      "requests": 3,
+      "response_body_wire_bytes": 510,
+      "response_header_bytes": 652,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.002067,
+      "equivalent": true
+    },
+    {
+      "scenario": "sparse-change",
+      "consumer": "fingerprint-manifest",
+      "requests": 3,
+      "response_body_wire_bytes": 4405,
+      "response_header_bytes": 653,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.002336,
+      "equivalent": true
+    },
+    {
+      "scenario": "sparse-change",
+      "consumer": "pagedigest",
+      "requests": 4,
+      "response_body_wire_bytes": 6692,
+      "response_header_bytes": 848,
+      "audit_requests": 1,
+      "elapsed_seconds": 0.003794,
+      "equivalent": true
+    },
+    {
+      "scenario": "template-change",
+      "consumer": "full",
+      "requests": 101,
+      "response_body_wire_bytes": 9723,
+      "response_header_bytes": 21918,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.064,
+      "equivalent": true
+    },
+    {
+      "scenario": "template-change",
+      "consumer": "conditional-http",
+      "requests": 101,
+      "response_body_wire_bytes": 9723,
+      "response_header_bytes": 21918,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.065194,
+      "equivalent": true
+    },
+    {
+      "scenario": "template-change",
+      "consumer": "sitemap-lastmod",
+      "requests": 101,
+      "response_body_wire_bytes": 9723,
+      "response_header_bytes": 21918,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.065539,
+      "equivalent": true
+    },
+    {
+      "scenario": "template-change",
+      "consumer": "fingerprint-manifest",
+      "requests": 101,
+      "response_body_wire_bytes": 13613,
+      "response_header_bytes": 21919,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.064763,
+      "equivalent": true
+    },
+    {
+      "scenario": "template-change",
+      "consumer": "pagedigest",
+      "requests": 101,
+      "response_body_wire_bytes": 13783,
+      "response_header_bytes": 21919,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.066967,
+      "equivalent": true
+    },
+    {
+      "scenario": "add-remove",
+      "consumer": "full",
+      "requests": 101,
+      "response_body_wire_bytes": 9669,
+      "response_header_bytes": 21918,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.073354,
+      "equivalent": true
+    },
+    {
+      "scenario": "add-remove",
+      "consumer": "conditional-http",
+      "requests": 101,
+      "response_body_wire_bytes": 373,
+      "response_header_bytes": 20433,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.064295,
+      "equivalent": true
+    },
+    {
+      "scenario": "add-remove",
+      "consumer": "sitemap-lastmod",
+      "requests": 2,
+      "response_body_wire_bytes": 373,
+      "response_header_bytes": 435,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.00166,
+      "equivalent": true
+    },
+    {
+      "scenario": "add-remove",
+      "consumer": "fingerprint-manifest",
+      "requests": 2,
+      "response_body_wire_bytes": 4265,
+      "response_header_bytes": 436,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.001792,
+      "equivalent": true
+    },
+    {
+      "scenario": "add-remove",
+      "consumer": "pagedigest",
+      "requests": 3,
+      "response_body_wire_bytes": 6581,
+      "response_header_bytes": 631,
+      "audit_requests": 1,
+      "elapsed_seconds": 0.003044,
+      "equivalent": true
+    },
+    {
+      "scenario": "cache-eviction",
+      "consumer": "full",
+      "requests": 101,
+      "response_body_wire_bytes": 9669,
+      "response_header_bytes": 21918,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.072021,
+      "equivalent": true
+    },
+    {
+      "scenario": "cache-eviction",
+      "consumer": "conditional-http",
+      "requests": 101,
+      "response_body_wire_bytes": 432,
+      "response_header_bytes": 20433,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.069071,
+      "equivalent": true
+    },
+    {
+      "scenario": "cache-eviction",
+      "consumer": "sitemap-lastmod",
+      "requests": 2,
+      "response_body_wire_bytes": 432,
+      "response_header_bytes": 435,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.001604,
+      "equivalent": true
+    },
+    {
+      "scenario": "cache-eviction",
+      "consumer": "fingerprint-manifest",
+      "requests": 2,
+      "response_body_wire_bytes": 99,
+      "response_header_bytes": 419,
+      "audit_requests": 0,
+      "elapsed_seconds": 0.001473,
+      "equivalent": true
+    },
+    {
+      "scenario": "cache-eviction",
+      "consumer": "pagedigest",
+      "requests": 3,
+      "response_body_wire_bytes": 2241,
+      "response_header_bytes": 614,
+      "audit_requests": 1,
+      "elapsed_seconds": 0.002553,
+      "equivalent": true
+    }
+  ]
+}

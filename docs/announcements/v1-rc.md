@@ -9,8 +9,7 @@ PageDigest v1 entered release-candidate status with this note.
 PageDigest is a one-file change-detection protocol for public websites. A
 publisher serves a manifest at `/.well-known/pagedigest.json` with a monotonic
 site revision and per-URL revisions. Stateful consumers fetch that manifest,
-compare it with their cache, and skip page fetches for URLs that provably have
-not changed.
+compare it with their cache, and skip page fetches for covered URLs reported unchanged when the consumer retains usable results.
 
 For a 10,000-page site that changes 20 pages in a week, a consumer can make one
 manifest request plus 20 page fetches instead of 10,000 per-URL checks.

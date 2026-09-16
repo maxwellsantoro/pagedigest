@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "generated": "2026-09-16T12:00:00Z",
+  "site_rev": 7,
+  "entries": {
+    "/missing": {
+      "rev": 1
+    },
+    "/stale": {
+      "rev": 3
+    }
+  }
+}

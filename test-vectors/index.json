@@ -109,6 +109,11 @@
       "id": "header-formats",
       "file": "header-formats.json",
       "kind": "request-header-syntax"
+    },
+    {
+      "id": "equal-site-incomplete-cache",
+      "file": "equal-site-incomplete-cache.json",
+      "kind": "valid"
     }
   ]
 }

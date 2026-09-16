@@ -65,7 +65,7 @@ def main() -> int:
         state_path = tmp_path / "state" / "pagedigest-state.json"
 
         # First run: seed revisions.
-        run_generator(site_dir, manifest_path, state_path)
+        run_generator(site_dir, manifest_path, state_path, ["--init"])
         m1 = load_manifest(manifest_path)
         assert_equal(m1["site_rev"], 1, "site_rev after first run")
         assert_equal(m1["coverage"], {"mode": "complete"}, "coverage after first run")
@@ -227,6 +227,43 @@ def main() -> int:
         )
         if m10["entries"]["/blog/"]["modified"] == modified_v1:
             raise AssertionError("modified must advance when content changes")
+
+        # State loss must never silently reset counters. Recover using an
+        # operator-supplied bound covering active AND previously retired URLs.
+        state_path.unlink()
+        try:
+            run_generator(site_dir, manifest_path, state_path)
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            raise AssertionError("missing state was silently initialized")
+        try:
+            run_generator(site_dir, manifest_path, state_path, ["--init"])
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            raise AssertionError("initialization overwrote existing publication")
+        run_generator(site_dir, manifest_path, state_path, ["--recover-floor", "100"])
+        recovered = load_manifest(manifest_path)
+        assert_equal(recovered["site_rev"], 101, "recovered site revision")
+        assert_equal(
+            recovered["entries"]["/blog/"]["rev"], 101, "recovered entry revision"
+        )
+        (site_dir / "retired.html").write_text("previously unknown retired key")
+        run_generator(site_dir, manifest_path, state_path)
+        assert_equal(
+            load_manifest(manifest_path)["entries"]["/retired.html"]["rev"],
+            101,
+            "recovery floor for retired key",
+        )
+        lock_path = Path(str(state_path) + ".lock")
+        lock_path.touch()
+        try:
+            run_generator(site_dir, manifest_path, state_path)
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            raise AssertionError("publisher ignored held lock")
 
     print("generator smoke progression passed")
     return 0

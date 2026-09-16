@@ -4,10 +4,10 @@ Behavior per request to an origin that publishes a manifest:
   1. Ensure the origin's manifest is loaded (cached, TTL'd, size-capped).
   2. Attach the `PageDigest-State` cooperation header (we observed site_rev).
   3. If the URL is covered and its `rev` is unchanged since our last crawl,
-     either skip it (IgnoreRequest) or -- with audit probability -- fetch it
+     either replay its cached response or -- with audit probability -- fetch it
      anyway and verify the publisher's digest.
   4. Anything unusable (no manifest / malformed / stale / distrusted origin)
-     falls straight through to normal crawling. Never worse than no manifest.
+     falls straight through to normal crawling. Cached responses preserve ordinary spider callbacks and traversal.
 
 The manifest is fetched with a short synchronous `requests` call and cached, to
 keep this reference implementation legible. A high-throughput consumer would
@@ -24,7 +24,9 @@ from urllib.parse import urlsplit
 
 import requests
 from scrapy import signals
-from scrapy.exceptions import IgnoreRequest, NotConfigured
+from scrapy.exceptions import NotConfigured
+from scrapy.http import Headers
+from scrapy.responsetypes import responsetypes
 
 from . import header, manifest as M
 from .store import Store, TRUSTED, SITE_DISTRUSTED
@@ -42,6 +44,7 @@ class PageDigestMiddleware:
         self.bootstrap_rate = settings.getfloat("PAGEDIGEST_BOOTSTRAP_AUDIT_RATE", 0.25)
         self.manifest_ttl = settings.getfloat("PAGEDIGEST_MANIFEST_TTL", 300.0)
         self.max_bytes = settings.getint("PAGEDIGEST_MAX_MANIFEST_BYTES", M.MAX_BYTES)
+        self.max_cache_bytes = settings.getint("PAGEDIGEST_MAX_CACHE_BYTES", 10 * 1024 * 1024)
         self.send_header = settings.getbool("PAGEDIGEST_SEND_HEADER", True)
         self.site_distrust_threshold = settings.getint(
             "PAGEDIGEST_SITE_DISTRUST_THRESHOLD", 3
@@ -63,7 +66,9 @@ class PageDigestMiddleware:
         if request.meta.pop("pagedigest_state_header", False):
             request.headers.pop("PageDigest-State", None)
         request.meta.pop("pagedigest_audit", None)
-        if request.method != "GET":
+        if request.method != "GET" or request.headers.get("Authorization") or request.headers.get("Cookie"):
+            return None
+        if request.headers.get("Range"):
             return None
         parts = urlsplit(request.url)
         origin = f"{parts.scheme}://{parts.netloc}"
@@ -129,11 +134,21 @@ class PageDigestMiddleware:
         if recovering:
             return None  # no digest available to re-establish trust
 
+        cached = self.store.get_response(origin, path)
+        if cached is None or (entry.digest and entry.digest != cached[2]):
+            return None  # metadata without usable matching bytes never permits reuse
+        body, headers, _ = cached
+        headers = Headers(headers)
+        response_type = responsetypes.from_args(headers=headers, url=request.url, body=body)
         self._record_skip(origin, path, cached_size)
-        raise IgnoreRequest(f"pagedigest: {path} unchanged at rev {entry.rev}")
+        return response_type(request.url, status=200, headers=headers, body=body,
+                             request=request, flags=["pagedigest_cached"])
+
 
     # ---- response path ----
     def process_response(self, request, response, spider):
+        if "pagedigest_cached" in response.flags:
+            return response
         meta = request.meta.get("pagedigest")
         if not meta:
             return response
@@ -162,6 +177,14 @@ class PageDigestMiddleware:
         if meta.get("rev_anomaly"):
             return response
 
+        # Cache only full public representations within the configured limit.
+        vary = response.headers.get(b"Vary", b"").lower().split(b",")
+        policy = response.headers.get(b"Cache-Control", b"").lower()
+        if (response.status != 200 or len(response.body) > self.max_cache_bytes
+                or any(value.strip() not in (b"", b"accept-encoding") for value in vary)
+                or b"private" in policy or b"no-store" in policy or response.headers.get(b"Set-Cookie")):
+            return response
+        self.store.set_response(meta["origin"], meta["path"], response)
         # record the freshly observed rev + size for next run's comparison
         self.store.set_rev(
             meta["origin"], meta["path"], meta["rev"], len(response.body)
@@ -214,7 +237,7 @@ class PageDigestMiddleware:
         )
         self.store.close()
 
-    # bytes-saved accounting lives here so IgnoreRequest stays a one-liner
+    # Count avoided network downloads, not avoided callback processing.
     def _record_skip(self, origin, path, size):
         self.stats.inc_value("pagedigest/skipped")
         self.stats.inc_value("pagedigest/bytes_saved_est", size)

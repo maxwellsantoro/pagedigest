@@ -4,7 +4,7 @@ Quick orientation for AI agents working in this repo. **Do not duplicate normati
 
 ## What this is
 
-`pagedigest` v1 **RC**: a JSON manifest at `/.well-known/pagedigest.json` with monotonic `site_rev` / per-URL `rev` and optional `sha256` digests. One-line pitch: [README.md](./README.md).
+`pagedigest` v1.0: a JSON manifest at `/.well-known/pagedigest.json` with monotonic `site_rev` / per-URL `rev` and optional `sha256` digests. One-line pitch: [README.md](./README.md).
 
 | Question | Canonical doc |
 |----------|----------------|

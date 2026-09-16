@@ -70,9 +70,9 @@ Key properties any future design would need to preserve:
 - **Honest staleness.** Observed revisions are only as fresh as the observer's
   last crawl; the manifest must carry that observation time so consumers can
   reason about it.
-- **No enforcement rights.** The CONTRACT's earned-enforcement bargain (the
-  429 pattern) belongs exclusively to publishers who do the work of
-  maintaining an honest manifest. Observers earn none of it.
+- **No enforcement rights.** Neither publisher nor observer manifests create
+  protocol-defined enforcement rights. Rate limits remain origin policy, and
+  repeated requests can reflect legitimate cache loss, audits, or separate users.
 - **Provenance survives handoff.** When a publisher later adopts pagedigest
   natively, consumers switch to the authoritative manifest without ambiguity.
 

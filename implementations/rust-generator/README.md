@@ -4,6 +4,7 @@ Crate name: `pagedigest`. Installed binary: `pagedigest-generator`.
 
 ## Behavior
 
+- Detects full-byte changes, including incidental build churn; digest omission does not change this behavior.
 - Scans an input directory for allowlisted content files (`.html`, `.htm`, `.md` by default).
 - Persists durable revision state (default: `<input_dir_parent>/.pagedigest/state.json`).
 - Increments per-URL `rev` on content changes; `site_rev` on any add/remove/change; never decreases.
@@ -59,12 +60,12 @@ which often churn when otherwise identical build artifacts are copied.
 
 ## Revision state
 
-Durable protocol state — keep private, outside ephemeral CI. See [site-state/README.md](../../site-state/README.md) for dogfood notes.
+Version 0.3.0 requires explicit first initialization (`--init`) and fails if durable state is missing on recurring builds. Recover with `--recover-floor N` only after establishing a bound on all historical revisions. Both operations refuse existing state. [Durable state, serialized CI, and recovery](../../CONTENT_HYGIENE.md#durable-publisher-state) are part of setup. These flags were introduced in v0.3.0; v0.2.0 does not support them.
 
 ## Run
 
 ```bash
-cargo run -- ./site-dist
+cargo run -- ./site-dist --state ./publisher-state.json --init
 cargo run -- ./site-dist --output ./site-dist/.well-known/pagedigest.json --state ./state.json --with-digest
 ```
 

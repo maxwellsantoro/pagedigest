@@ -474,18 +474,6 @@ def diff(
             "site_rev": site_rev,
         }
 
-    if cached_site_rev is not None and site_rev == cached_site_rev:
-        return {
-            "site_changed": False,
-            "changed": [],
-            "new": [],
-            "unchanged": sorted(entries.keys()),
-            "removed": [],
-            "anomalies": [],
-            "fallback_urls": [],
-            "site_rev": site_rev,
-        }
-
     changed: list[str] = []
     new: list[str] = []
     unchanged: list[str] = []
@@ -742,8 +730,14 @@ def check_site(
     session: requests.Session | None = None,
     max_bytes: int = DEFAULT_MAX_MANIFEST_BYTES,
     rng: random.Random | None = None,
+    cached_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """High-level convenience API: fetch + diff + optional sampled audit plan.
+
+    Conditional requests require a validated cached_manifest. Even on HTTP 304,
+    process new/changed URLs and audit_candidates: local results may be missing.
+    cached_revs must describe results still available to the caller, not merely
+    observed publisher revisions. This function plans audits; it does not run them.
 
     Any anomaly — a ``site_rev`` decrease or even a single per-URL ``rev``
     decrease — triggers a whole-site fallback. This is deliberately stricter
@@ -751,11 +745,16 @@ def check_site(
     callers that need finer-grained handling should call ``fetch`` and ``diff``
     directly and apply their own scoping policy.
     """
+    reusable_manifest = (
+        isinstance(cached_manifest, dict)
+        and validate_manifest(cached_manifest) is None
+        and cached_manifest["site_rev"] == cached_site_rev
+    )
     result = fetch(
         base_url,
         timeout=timeout,
-        etag=etag,
-        last_modified=last_modified,
+        etag=etag if reusable_manifest else None,
+        last_modified=last_modified if reusable_manifest else None,
         session=session,
         max_bytes=max_bytes,
     )
@@ -769,16 +768,22 @@ def check_site(
         }
 
     if result.status_code == 304:
-        return {
-            "fallback": False,
-            "not_modified": True,
-            "changed": [],
-            "etag": result.etag,
-            "last_modified": result.last_modified,
-        }
+        if not reusable_manifest:
+            return {"fallback": True, "error": "not-modified-without-cached-manifest"}
+        result.manifest = cached_manifest
 
     assert result.manifest is not None
     decisions = diff(result.manifest, cached_site_rev, cached_revs)
+    # A corrected digest can also expose reused revisions. Conservatively
+    # refresh these representations even when the publisher kept its counters.
+    if reusable_manifest:
+        for key in list(decisions["unchanged"]):
+            old = cached_manifest["entries"].get(key, {})
+            new = result.manifest["entries"][key]
+            if old.get("digest") != new.get("digest"):
+                decisions["unchanged"].remove(key)
+                decisions["changed"].append(key)
+        decisions["changed"].sort()
 
     if decisions.get("site_anomaly") or decisions.get("anomalies"):
         return {
@@ -804,6 +809,7 @@ def check_site(
             "manifest": result.manifest,
             "etag": result.etag,
             "last_modified": result.last_modified,
+            "not_modified": result.status_code == 304,
             "audit_candidates": audit_candidates,
             "sample_audit_rate": sample_audit_rate,
         }

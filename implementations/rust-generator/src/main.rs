@@ -44,6 +44,14 @@ struct Args {
     #[arg(long)]
     state: Option<PathBuf>,
 
+    /// Explicit first publication only. Never enable this on recurring CI runs.
+    #[arg(long, conflicts_with = "recover_floor")]
+    init: bool,
+
+    /// Recover missing state above a known high-water mark for ALL historical revisions.
+    #[arg(long)]
+    recover_floor: Option<u64>,
+
     /// Route style for index files.
     #[arg(long, value_enum, default_value_t = IndexStyle::TrailingSlash)]
     index_style: IndexStyle,
@@ -125,6 +133,8 @@ struct ManifestEntry {
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct State {
     site_rev: u64,
+    #[serde(default)]
+    revision_floor: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     coverage: Option<Coverage>,
     /// Currently covered URL keys (present in the last emitted manifest).
@@ -165,7 +175,26 @@ fn main() -> Result<()> {
             .join("state.json")
     });
 
-    let previous = load_state(&state_path)?;
+    let _lock = StateLock::acquire(&state_path)?;
+    let previous = if args.init || args.recover_floor.is_some() {
+        if state_path.exists() {
+            bail!("state already exists; initialization/recovery cannot overwrite it");
+        }
+        if args.init && output_path.exists() {
+            bail!("manifest already exists; restore durable state or use --recover-floor");
+        }
+        let floor = args.recover_floor.unwrap_or(0);
+        if floor == u64::MAX {
+            bail!("recovery floor leaves no room for revisions");
+        }
+        State {
+            site_rev: floor,
+            revision_floor: floor,
+            ..State::default()
+        }
+    } else {
+        load_state(&state_path)?
+    };
     let mut current_digests = collect_digests(&input_dir, args.index_style, &args.include_ext)?;
 
     if let Some(ref coverage_value) = coverage {
@@ -174,7 +203,7 @@ fn main() -> Result<()> {
         }
     }
 
-    let mut any_change = false;
+    let mut any_change = args.init || args.recover_floor.is_some();
     let mut entries = BTreeMap::new();
     let mut next_state_entries = BTreeMap::new();
     let observed_at = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
@@ -192,8 +221,21 @@ fn main() -> Result<()> {
                 !previous.entries.contains_key(url),
                 prev.modified.clone().unwrap_or_else(|| observed_at.clone()),
             ),
-            Some(prev) => (prev.rev + 1, true, observed_at.clone()),
-            None => (1, true, observed_at.clone()),
+            Some(prev) => (
+                prev.rev
+                    .checked_add(1)
+                    .context("entry revision exhausted")?,
+                true,
+                observed_at.clone(),
+            ),
+            None => (
+                previous
+                    .revision_floor
+                    .checked_add(1)
+                    .context("revision floor exhausted")?,
+                true,
+                observed_at.clone(),
+            ),
         };
 
         if changed {
@@ -236,7 +278,10 @@ fn main() -> Result<()> {
     }
 
     let site_rev = if any_change {
-        previous.site_rev + 1
+        previous
+            .site_rev
+            .checked_add(1)
+            .context("site revision exhausted")?
     } else {
         previous.site_rev
     };
@@ -251,6 +296,7 @@ fn main() -> Result<()> {
 
     let next_state = State {
         site_rev,
+        revision_floor: previous.revision_floor,
         coverage,
         entries: next_state_entries,
         retired: next_retired,
@@ -270,9 +316,36 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+struct StateLock(PathBuf);
+
+impl StateLock {
+    fn acquire(state: &Path) -> Result<Self> {
+        if let Some(parent) = state.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let path = PathBuf::from(format!("{}.lock", state.display()));
+        fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .with_context(|| {
+                format!(
+                    "cannot lock {}; serialize publishers; inspect stale locks after crashes",
+                    path.display()
+                )
+            })?;
+        Ok(Self(path))
+    }
+}
+impl Drop for StateLock {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
+}
+
 fn load_state(path: &Path) -> Result<State> {
     if !path.exists() {
-        return Ok(State::default());
+        bail!("missing durable state {}; use --init only for a first publication, or restore/recover state", path.display());
     }
 
     let raw = fs::read_to_string(path)
