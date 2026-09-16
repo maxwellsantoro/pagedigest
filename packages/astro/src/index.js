@@ -253,8 +253,9 @@ export async function generateManifest(options) {
   };
 
   const manifestPath = path.join(outputDir, outputPath);
-  await writeJsonAtomic(manifestPath, manifest);
+  // Reserve revision high-water marks before exposing the manifest.
   await writeJsonAtomic(statePath, state);
+  await writeJsonAtomic(manifestPath, manifest);
   return { manifest, manifestPath, statePath };
 }
 
@@ -264,6 +265,9 @@ export default function pagedigest(options = {}) {
     name: "@pagedigest/astro",
     hooks: {
       "astro:config:done": ({ config }) => {
+        if (config.base && config.base !== "/") {
+          throw new Error("pagedigest requires Astro base '/' so URL keys and origin-root manifest discovery agree");
+        }
         root = fileURLToPath(config.root);
       },
       "astro:build:done": async ({ dir, logger }) => {

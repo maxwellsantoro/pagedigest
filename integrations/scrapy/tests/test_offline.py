@@ -364,6 +364,56 @@ def test_redirect_metadata_does_not_record_original_revision():
     print("ok: redirects do not carry stale revision metadata")
 
 
+def test_unlisted_redirect_clears_cooperation_header():
+    m = make_mw(":memory:")
+    set_manifest(manifest_bytes(17, {}))
+    r = req("/unlisted")
+    m.process_request(r, None)
+    assert r.headers.get("PageDigest-State")
+    assert "pagedigest" not in r.meta
+    set_manifest(None)
+    redirected = r.replace(url="https://other.test/unlisted")
+    m.process_request(redirected, None)
+    assert "PageDigest-State" not in redirected.headers
+    assert "pagedigest_state_header" not in redirected.meta
+    m.store.close()
+    print("ok: unlisted redirects clear origin-specific cooperation headers")
+
+
+def test_large_revisions_and_deep_json_fall_back():
+    for raw in (
+        manifest_bytes(2**63, {"/a": {"rev": 1}}),
+        manifest_bytes(1, {"/a": {"rev": 2**63}}),
+        b"[" * 100_000 + b"0" + b"]" * 100_000,
+    ):
+        m = make_mw(":memory:")
+        set_manifest(raw)
+        r = req()
+        assert m.process_request(r, None) is None
+        m.process_response(r, resp(r), None)
+        assert "PageDigest-State" not in r.headers
+        assert m.store.get_site(ORIGIN)[0] is None
+        assert m.store.get_rev(ORIGIN, "/a")[0] is None
+        assert m.stats.get_value("pagedigest/manifest_unusable") == 1
+        m.store.close()
+    # The largest supported value must still persist and skip correctly.
+    m = make_mw(":memory:")
+    set_manifest(manifest_bytes(2**63 - 1, {"/a": {"rev": 2**63 - 1}}))
+    r = req()
+    m.process_request(r, None)
+    m.process_response(r, resp(r), None)
+    assert m.store.get_site(ORIGIN)[0] == 2**63 - 1
+    assert m.store.get_rev(ORIGIN, "/a")[0] == 2**63 - 1
+    try:
+        m.process_request(req(), None)
+    except IgnoreRequest:
+        pass
+    else:
+        raise AssertionError("unchanged maximum revision should skip")
+    m.store.close()
+    print("ok: unsupported revisions and decoder depth fall back safely")
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

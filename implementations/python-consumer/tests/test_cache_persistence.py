@@ -62,6 +62,27 @@ class CachePersistenceTests(unittest.TestCase):
             self.assertEqual(result, 1)
             self.assertEqual(state_path.read_bytes(), original)
 
+    def test_normalized_url_does_not_fetch_or_advance_state(self) -> None:
+        decision = {
+            "fallback": False,
+            "new": ["/page?"],
+            "changed": [],
+            "manifest": {"entries": {"/page?": {"rev": 1}}},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state_path = root / "state.json"
+            cache_persistence.save_state(state_path, cache_persistence.empty_state())
+            original = state_path.read_bytes()
+            with (
+                patch.object(cache_persistence, "check_site", return_value=decision),
+                patch.object(cache_persistence, "fetch_page") as fetch_page,
+            ):
+                result = cache_persistence.run_cycle("https://example.com", state_path, root / "pages")
+            self.assertEqual(result, 1)
+            self.assertEqual(state_path.read_bytes(), original)
+            fetch_page.assert_not_called()
+
     def test_successful_cycle_persists_only_after_body_fetch(self) -> None:
         decision = {
             "fallback": False,

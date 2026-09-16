@@ -47,6 +47,10 @@ in [`docs/consumer-integration.md`](../../docs/consumer-integration.md).
 
 This is an experimental consumer integration, not a published package yet. It is
 kept in-tree to make the Scrapy adoption path concrete and testable.
+The SQLite adapter supports revisions from `0` through `2**63 - 1`. A manifest
+with a larger site or entry revision falls back to normal crawling before any
+revision state is saved. This is an adapter limit, not a protocol limit.
+
 Offline decision-logic tests (`tests/test_offline.py`) run in
 `./tools/run_checks.sh` / CI; end-to-end Scrapy reactor demos stay manual.
 

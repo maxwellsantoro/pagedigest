@@ -237,7 +237,7 @@ test("writes a custom output path without indexing the manifest", async () => {
   }
 });
 
-test("runs inside a real Astro build", async () => {
+test("runs inside a real Astro build and rejects subpath deployments", async () => {
   const root = await fixture();
   try {
     const pageDir = path.join(root, "src", "pages");
@@ -267,6 +267,12 @@ test("runs inside a real Astro build", async () => {
     assert.equal(manifest.version, 1);
     assert.equal(manifest.site_rev, 1);
     assert.deepEqual(Object.keys(manifest.entries), ["/"]);
+    await writeFile(
+      path.join(root, "astro.config.mjs"),
+      `import pagedigest from ${JSON.stringify(integrationUrl)};
+       export default { base: "/docs", integrations: [pagedigest()] };`,
+    );
+    await assert.rejects(build({ root }), /pagedigest requires Astro base/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -285,4 +291,36 @@ test("encodes Unicode and literal filename characters as path segments", () => {
     assert.equal(urlKeyForHtml(filename), expected);
   }
   if (path.sep === "/") assert.equal(urlKeyForHtml("a\\b.html"), "/a%5Cb.html");
+});
+
+
+test("failed writes cannot expose unreserved revisions", async () => {
+  for (const failState of [true, false]) {
+    const root = await fixture();
+    try {
+      const outputDir = path.join(root, "dist");
+      const statePath = path.join(root, "state.json");
+      const manifestPath = path.join(outputDir, ".well-known", "pagedigest.json");
+      await mkdir(outputDir);
+      await writeFile(path.join(outputDir, "index.html"), "A");
+      await generateManifest({ outputDir, statePath });
+      await writeFile(path.join(outputDir, "index.html"), "B");
+      const blockedTemp = failState
+        ? path.join(root, ".state.json.tmp")
+        : path.join(outputDir, ".well-known", ".pagedigest.json.tmp");
+      await mkdir(blockedTemp);
+      await assert.rejects(generateManifest({ outputDir, statePath }));
+      const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+      const state = JSON.parse(await readFile(statePath, "utf8"));
+      assert.equal(manifest.site_rev, 1);
+      assert.equal(state.site_rev, failState ? 1 : 2);
+      await rm(blockedTemp, { recursive: true });
+      await writeFile(path.join(outputDir, "index.html"), "A");
+      const next = await generateManifest({ outputDir, statePath });
+      assert.equal(next.manifest.site_rev, failState ? 1 : 3);
+      assert.equal(next.manifest.entries["/"].rev, failState ? 1 : 3);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
 });

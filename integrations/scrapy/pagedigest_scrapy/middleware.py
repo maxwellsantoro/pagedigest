@@ -59,7 +59,8 @@ class PageDigestMiddleware:
     # ---- request path ----
     def process_request(self, request, spider):
         # Redirects and retries copy metadata; decide again for this request URL.
-        if request.meta.pop("pagedigest", None) is not None:
+        request.meta.pop("pagedigest", None)
+        if request.meta.pop("pagedigest_state_header", False):
             request.headers.pop("PageDigest-State", None)
         request.meta.pop("pagedigest_audit", None)
         if request.method != "GET":
@@ -79,6 +80,7 @@ class PageDigestMiddleware:
                 request.headers["PageDigest-State"] = header.build(
                     man.site_rev, man.manifest_path
                 )
+                request.meta["pagedigest_state_header"] = True
             except ValueError:
                 pass
 

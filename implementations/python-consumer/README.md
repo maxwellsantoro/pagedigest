@@ -23,6 +23,14 @@ Requires Python ≥3.9. Runtime dependency: `requests`.
 - `validate_manifest`, `resolve_url_key`, `manifest_url` — validation and URL helpers
 - `format_state_header`, `parse_state_header` — strict optional `PageDigest-State` helpers
 
+`resolve_url_key` raises `ValueError("url-key-transport-normalization")` for
+valid keys that the HTTP stack would rewrite, including dot segments, empty
+queries, escapes of unreserved characters, and lowercase percent escapes.
+These keys remain valid protocol keys; callers should fall back to their normal
+crawl path rather than associate a normalized URL's response with the original
+key. `audit` and reconciliation report such targets as inconclusive without
+fetching them.
+
 ## CLI
 
 ```bash

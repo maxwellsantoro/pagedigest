@@ -174,7 +174,7 @@ def run_cycle(
             )
             updated_pages[url_key] = filename
             print(f"fetched {url_key} -> {filename}")
-    except (OSError, requests.RequestException, RuntimeError) as exc:
+    except (OSError, requests.RequestException, RuntimeError, ValueError) as exc:
         print(f"page fetch failed; cache state not advanced: {exc}")
         return 1
 

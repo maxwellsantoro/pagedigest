@@ -351,6 +351,37 @@ class CoreTests(unittest.TestCase):
             "https://example.com/pricing?region=us",
         )
 
+    def test_audit_declines_keys_that_transport_would_rewrite(self) -> None:
+        reconcile = load_tool("reconcile_served_digests")
+        for key in ("/page?", "/a/../page", "/%70age", "/page?x=%7e", "/a%2fb"):
+            with self.subTest(key=key):
+                self.assertIsNone(validate_manifest(valid_manifest(entries={key: {"rev": 1}})))
+                session = QueueSession([])
+                result = audit("https://example.com", key, "sha256:" + "0" * 64, session=session)
+                self.assertEqual(result, {"result": "inconclusive", "reason": "url-key-transport-normalization"})
+                self.assertEqual(session.requests, [])
+                with patch.object(reconcile.requests, "get") as get:
+                    digest, error = reconcile.fetch_identity_digest("https://example.com", key, 10)
+                self.assertIsNone(digest)
+                self.assertEqual(error, "url-key-transport-normalization")
+                get.assert_not_called()
+
+    def test_deep_json_falls_back_and_closes_response(self) -> None:
+        body = b"[" * 100_000 + b"0" + b"]" * 100_000
+        for operation in (fetch, fetch_manifest_url, check_site):
+            with self.subTest(operation=operation.__name__):
+                response = StubResponse(200, content=body)
+                kwargs = {"session": StubSession(response)}
+                if operation is check_site:
+                    result = operation("https://example.com", None, {}, **kwargs)
+                    self.assertTrue(result["fallback"])
+                    self.assertEqual(result["error"], "invalid-json")
+                else:
+                    result = operation("https://example.com", **kwargs)
+                    self.assertFalse(result.ok)
+                    self.assertEqual(result.error, "invalid-json")
+                self.assertTrue(response.closed)
+
     def test_resolve_url_key_rejects_scheme_relative_key(self) -> None:
         with self.assertRaisesRegex(ValueError, "invalid-url-key-scheme-relative"):
             resolve_url_key("https://example.com", "//127.0.0.1/admin")

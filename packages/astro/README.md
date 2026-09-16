@@ -1,7 +1,9 @@
 # `@pagedigest/astro`
 
 Astro integration for generating `/.well-known/pagedigest.json` after a static
-Astro build.
+Astro build. The integration requires `base: "/"` (the Astro default);
+subpath deployments are rejected because URL keys and manifest discovery must
+refer to the origin root.
 
 ```js
 // astro.config.mjs

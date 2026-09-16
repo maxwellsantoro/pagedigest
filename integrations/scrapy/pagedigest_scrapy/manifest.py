@@ -84,11 +84,19 @@ def parse(raw: bytes, prev_site_rev: Optional[int]) -> Optional[Manifest]:
     """
     try:
         doc = json.loads(raw)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, RecursionError):
         return None
     if not isinstance(doc, dict):
         return None
     if validate_manifest(doc) is not None:
+        return None
+
+    # SQLite INTEGER bindings cannot represent larger revisions. Decline this
+    # optimization rather than letting persistence interrupt normal crawling.
+    max_revision = 2**63 - 1
+    if doc["site_rev"] > max_revision or any(
+        entry["rev"] > max_revision for entry in doc["entries"].values()
+    ):
         return None
 
     site_rev = doc["site_rev"]

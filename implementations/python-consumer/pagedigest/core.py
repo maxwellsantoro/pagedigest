@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 
@@ -123,7 +123,7 @@ def _validate_url_key(key: Any) -> str | None:
 
 
 def resolve_url_key(base_url: str, url_key: str) -> str:
-    """Resolve a manifest key without allowing it to escape the base origin."""
+    """Resolve a key, rejecting targets Requests cannot send byte-exactly."""
     if (validation_error := _validate_url_key(url_key)) is not None:
         raise ValueError(validation_error)
 
@@ -131,11 +131,15 @@ def resolve_url_key(base_url: str, url_key: str) -> str:
     if base.scheme.lower() not in {"http", "https"} or not base.netloc:
         raise ValueError("invalid-base-url")
 
-    origin = urlunsplit((base.scheme, base.netloc, "/", "", ""))
-    resolved = urljoin(origin, url_key)
-    target = urlsplit(resolved)
-    if target.scheme.lower() != base.scheme.lower() or target.netloc.lower() != base.netloc.lower():
-        raise ValueError("url-key-origin-escape")
+    resolved = urlunsplit((base.scheme, base.netloc, "", "", "")) + url_key
+    # Requests removes dot segments, empty queries, and escapes of unreserved
+    # characters. urllib3 also uppercases percent escapes. Never attribute the
+    # resulting representation to a different, byte-exact manifest key.
+    prepared = requests.Request("GET", resolved).prepare()
+    if prepared.path_url != url_key or any(
+        match.group() != match.group().upper() for match in re.finditer(r"%[0-9A-Fa-f]{2}", url_key)
+    ):
+        raise ValueError("url-key-transport-normalization")
     return resolved
 
 
@@ -334,7 +338,7 @@ def fetch(
         assert body is not None
         try:
             manifest = json.loads(body)
-        except ValueError:
+        except (ValueError, RecursionError):
             return FetchResult(
                 False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "invalid-json"
             )
@@ -405,7 +409,7 @@ def fetch_manifest_url(
         assert body is not None
         try:
             manifest = json.loads(body)
-        except ValueError:
+        except (ValueError, RecursionError):
             return FetchResult(
                 False, r.status_code, None, r.headers.get("ETag"), r.headers.get("Last-Modified"), "invalid-json"
             )
