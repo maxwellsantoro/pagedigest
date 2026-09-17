@@ -84,3 +84,18 @@ These gates are separate from the historical v1.0 wire-format gate above.
 [Release verification and migration notes](./docs/releases/consumer-safety.md).
 The independent-adoption gate cannot be satisfied by source tests, local benchmarks,
 or deployments operated by this project.
+
+
+## Consumer safety follow-up
+
+- [x] Explicit HTTP cache/validation requests bypass and revoke Scrapy replay.
+- [x] Unsupported response policies and restrictive transitions invalidate old replay bodies without lowering revision history.
+- [x] Sixteen real Scrapy middleware scenarios, including legacy entries and forced-audit policy transitions, pass.
+- [x] Error-template exclusion is part of the dogfood generation helper and drift guard.
+- [x] Local and live whole-collection cold, warm/304, and controlled changed-resource cycles complete.
+- [x] Deployment verifies the exact new revision with bounded propagation retries and fresh state per attempt.
+- [x] Refined benchmark includes matched audit policies, conditional sitemaps, and real persistent-cache integrity costs.
+- [x] Comparative evidence leads the homepage/README evidence sections; GitHub description no longer says RC.
+
+[Follow-up evidence](./docs/releases/consumer-safety-followup.md). The independent
+operator gate above remains open; these live checks are project-operated dogfood.

@@ -61,3 +61,14 @@ zero mismatches, and one inconclusive redirect (`/404.html`, HTTP 308). Redirect
 are not silently counted as matches. No served-byte reconciliation was needed.
 This deployment is operated by this project and does not satisfy the
 [independent adoption criteria](../benchmarks/README.md#independent-adoption-acceptance).
+
+
+## Subsequent repository follow-up
+
+The [follow-up record](./consumer-safety-followup.md) closes the experimental
+Scrapy HTTP replay-policy gaps and removes the error template from the live
+collection. Whole-collection cold/warm/changed syncs now complete, and revision 13
+has three matching digests with no inconclusive entries. The original release
+verification above remains a historical record of revision 11. Published package
+versions are unchanged; the follow-up concerns the adapter, examples, tooling,
+and site.

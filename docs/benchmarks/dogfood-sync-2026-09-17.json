@@ -1,0 +1,118 @@
+{
+  "observed_date_utc": "2026-09-17",
+  "scope": "Project-operated live dogfood; not independent adoption evidence",
+  "collection_fix_commit": "34ad215da5f9b6b97ee1bdd8f0bb17eb17117f6f",
+  "controlled_change_commit": "6dbed7e",
+  "audit_policy": "All reused digest-bearing resources audited on each cycle",
+  "cycles": [
+    {
+      "cycle": "cold",
+      "base_url": "https://pagedigest.org",
+      "site_rev": 12,
+      "resources": 3,
+      "completed": true,
+      "elapsed_seconds": 0.5614631250064122,
+      "cache_integrity_bytes": 0,
+      "cache_integrity_bodies": 0,
+      "cache_integrity_seconds": 4.999892553314567e-07,
+      "audit_requests": 0,
+      "manifest_not_modified": false,
+      "fetched_urls": [
+        "/",
+        "/announcements/v1-rc/",
+        "/rel/"
+      ],
+      "http_requests": [
+        {
+          "url": "https://pagedigest.org/.well-known/pagedigest.json",
+          "status": 200
+        },
+        {
+          "url": "https://pagedigest.org/",
+          "status": 200
+        },
+        {
+          "url": "https://pagedigest.org/announcements/v1-rc/",
+          "status": 200
+        },
+        {
+          "url": "https://pagedigest.org/rel/",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "cycle": "warm",
+      "base_url": "https://pagedigest.org",
+      "site_rev": 12,
+      "resources": 3,
+      "completed": true,
+      "elapsed_seconds": 0.38248749999911524,
+      "cache_integrity_bytes": 32312,
+      "cache_integrity_bodies": 3,
+      "cache_integrity_seconds": 0.0006312499899649993,
+      "audit_requests": 3,
+      "manifest_not_modified": true,
+      "fetched_urls": [],
+      "http_requests": [
+        {
+          "url": "https://pagedigest.org/.well-known/pagedigest.json",
+          "status": 304
+        },
+        {
+          "url": "https://pagedigest.org/rel/",
+          "status": 200
+        },
+        {
+          "url": "https://pagedigest.org/",
+          "status": 200
+        },
+        {
+          "url": "https://pagedigest.org/announcements/v1-rc/",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "cycle": "changed",
+      "base_url": "https://pagedigest.org",
+      "site_rev": 13,
+      "resources": 3,
+      "completed": true,
+      "elapsed_seconds": 0.3953978339995956,
+      "cache_integrity_bytes": 32312,
+      "cache_integrity_bodies": 3,
+      "cache_integrity_seconds": 0.000489333993755281,
+      "audit_requests": 2,
+      "manifest_not_modified": false,
+      "fetched_urls": [
+        "/"
+      ],
+      "http_requests": [
+        {
+          "url": "https://pagedigest.org/.well-known/pagedigest.json",
+          "status": 200
+        },
+        {
+          "url": "https://pagedigest.org/announcements/v1-rc/",
+          "status": 200
+        },
+        {
+          "url": "https://pagedigest.org/rel/",
+          "status": 200
+        },
+        {
+          "url": "https://pagedigest.org/",
+          "status": 200
+        }
+      ]
+    }
+  ],
+  "final_digest_audit": {
+    "site_rev": 13,
+    "sampled": 3,
+    "match": 3,
+    "mismatch": 0,
+    "inconclusive": 0
+  }
+}

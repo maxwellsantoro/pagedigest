@@ -21,6 +21,11 @@ integrations and v1.1 features follow that evidence.
 
 Acceptance and measured fixture results: [benchmark notes](./docs/benchmarks/README.md).
 
+The [repository follow-up](./docs/releases/consumer-safety-followup.md) adds
+conservative Scrapy HTTP replay policy, complete live synchronization checks, and
+matched-audit/persistent-consumer benchmark measurements. The adapter remains
+experimental, and independent operation is still the next adoption gate.
+
 The cross-project execution order that got us here was trust hygiene first, then the v1 spec clarifications (`PageDigest-State`, prior-art, and audit economics), measured dotrepo dogfood, agent consumption, and then broad distribution.
 
 ## Phase 1 — Public RC

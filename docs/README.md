@@ -17,6 +17,7 @@ Agents: [AGENTS.md](../AGENTS.md) (symlinked as `CLAUDE.md`).
 | [cooperative-automation.md](./cooperative-automation.md) | Publishers & intermediaries | `PageDigest-State` logging, classification, nginx, and Cloudflare recipes |
 | [announcements/v1-rc.md](./announcements/v1-rc.md) | Adopters & maintainers | Historical v1 RC announcement (protocol is v1.0) |
 | [releases/consumer-safety.md](./releases/consumer-safety.md) | Adopters & maintainers | Safety release migration and published-artifact verification |
+| [releases/consumer-safety-followup.md](./releases/consumer-safety-followup.md) | Adopters & maintainers | Replay-policy fixes, complete live synchronization, and refined benchmark evidence |
 | [registrations/](./registrations/) | Maintainers | IANA registration drafts and filed request links |
 
 Implementation guides: [rust-generator](../implementations/rust-generator/README.md), [python-consumer](../implementations/python-consumer/README.md).
