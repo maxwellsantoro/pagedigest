@@ -144,11 +144,12 @@ not the sole source of request reduction. [Comparison and primary references](./
 
 ## Evidence and limits
 
+- [Controlled consumer benchmark](./docs/benchmarks/README.md): equivalent results,
+  conditional sitemap fetching, matched audit policies, and the real persistent
+  consumer's disk integrity work. Seven strategies across six local scenarios;
+  not independent adoption evidence.
 - [dotrepo July 3 case study](./docs/case-studies/dotrepo.md): export-derived estimates
   for 2,453 covered records, including manifest overhead. Not measured model-token savings.
-- [Controlled consumer benchmark](./docs/benchmarks/README.md): real local HTTP,
-  equivalent collection and freshness checks, conditional HTTP, accurate sitemap,
-  fingerprint manifest, and PageDigest baselines. Not independent adoption evidence.
 - [pagedigest.org](https://pagedigest.org): dogfood deployment.
   [Release verification](./docs/releases/consumer-safety.md#verification) records
   published-artifact checks and the live digest audit separately.

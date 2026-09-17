@@ -55,6 +55,11 @@ class Store:
             return None
         return row[0], json.loads(row[1]), row[2]
 
+    def invalidate_response(self, origin, url):
+        """Revoke replay while preserving the revision high-water mark."""
+        self.db.execute("DELETE FROM response WHERE origin=? AND url=?", (origin, url))
+        self.db.commit()
+
     def set_response(self, origin, url, response):
         headers = {key.decode("latin1"): [v.decode("latin1") for v in values]
                    for key, values in response.headers.items()

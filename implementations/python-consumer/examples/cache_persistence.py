@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -158,6 +159,7 @@ def run_cycle(
     session: requests.Session | None = None,
     max_page_bytes: int = DEFAULT_MAX_PAGE_BYTES,
     sample_audit_rate: float = 0.01,
+    metrics: dict[str, Any] | None = None,
 ) -> int:
     """Serialize writers; a stale lock after a crash requires operator review."""
     state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -171,13 +173,14 @@ def run_cycle(
             session=session,
             max_page_bytes=max_page_bytes,
             sample_audit_rate=sample_audit_rate,
+            metrics=metrics,
         )
     finally:
         os.close(descriptor)
         lock.unlink()
 
 
-def _run_cycle(base_url, state_path, pages_dir, *, session, max_page_bytes, sample_audit_rate):
+def _run_cycle(base_url, state_path, pages_dir, *, session, max_page_bytes, sample_audit_rate, metrics):
     state = load_state(state_path)
     origin = manifest_url(base_url)
     if state.get("origin") not in (None, origin):
@@ -186,16 +189,28 @@ def _run_cycle(base_url, state_path, pages_dir, *, session, max_page_bytes, samp
     # Metadata is reusable only while its corresponding body is still present
     # and intact. Legacy state without body hashes is refreshed once.
     available = {}
+    integrity_started = time.perf_counter()
+    integrity_bytes = 0
+    integrity_bodies = 0
     for key, rev in state["revs"].items():
         filename = state["pages"].get(key)
         expected = state.get("body_hashes", {}).get(key)
         if filename and expected and not state.get("distrusted"):
             try:
-                actual = "sha256:" + hashlib.sha256((pages_dir / filename).read_bytes()).hexdigest()
+                body = (pages_dir / filename).read_bytes()
+                integrity_bytes += len(body)
+                integrity_bodies += 1
+                actual = "sha256:" + hashlib.sha256(body).hexdigest()
                 if actual == expected:
                     available[key] = rev
             except FileNotFoundError:
                 pass
+    if metrics is not None:
+        metrics.update(
+            cache_integrity_bytes=integrity_bytes,
+            cache_integrity_bodies=integrity_bodies,
+            cache_integrity_seconds=time.perf_counter() - integrity_started,
+        )
     decision = check_site(
         base_url,
         cached_site_rev=state["site_rev"],
@@ -223,6 +238,12 @@ def _run_cycle(base_url, state_path, pages_dir, *, session, max_page_bytes, samp
             print("audit failed; revisions retained; next cycle refreshes all covered bodies")
             return 1
 
+    if metrics is not None:
+        metrics.update(
+            audit_requests=len(decision.get("audit_candidates", [])),
+            manifest_not_modified=decision.get("not_modified", False),
+            fetched_urls=decision["new"] + decision["changed"],
+        )
     manifest = decision["manifest"]
     updated_pages = dict(state["pages"])
     body_hashes = dict(state.get("body_hashes", {}))

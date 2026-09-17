@@ -13,9 +13,7 @@ those separately. Informational timestamps are ignored.
 
 Run it via ``./tools/run_checks.sh`` (CI runs the same). On failure, regenerate:
 
-    cargo run --manifest-path implementations/rust-generator/Cargo.toml -- \\
-        ./site --output site/.well-known/pagedigest.json \\
-        --state site-state/state.json --with-digest
+    python tools/generate_dogfood_manifest.py
 
 then reconcile against the live origin if any digest no longer matches served
 bytes (CONTENT_HYGIENE.md), and commit both files.
@@ -25,34 +23,18 @@ from __future__ import annotations
 
 import json
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
 
 from pagedigest import validate_manifest
+from generate_dogfood_manifest import run_generator
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR_DIR = ROOT / "implementations" / "rust-generator"
 SITE_DIR = ROOT / "site"
 COMMITTED_MANIFEST = SITE_DIR / ".well-known" / "pagedigest.json"
 COMMITTED_STATE = ROOT / "site-state" / "state.json"
-
-
-def run_generator(site: Path, output: Path, state: Path) -> None:
-    cmd = [
-        "cargo",
-        "run",
-        "--quiet",
-        "--",
-        str(site),
-        "--output",
-        str(output),
-        "--state",
-        str(state),
-        "--with-digest",
-    ]
-    subprocess.run(cmd, cwd=GENERATOR_DIR, check=True, capture_output=True, text=True)
 
 
 def normalize(manifest: dict[str, Any]) -> dict[str, Any]:
@@ -100,9 +82,7 @@ def main() -> int:
             "dogfood manifest drift: site/.well-known/pagedigest.json does not "
             "match a fresh generation from site/. Regenerate the manifest and "
             "state, reconcile against served bytes if needed, and commit:\n"
-            "  cargo run --manifest-path implementations/rust-generator/Cargo.toml "
-            "-- ./site --output site/.well-known/pagedigest.json "
-            "--state site-state/state.json --with-digest"
+            "  python tools/generate_dogfood_manifest.py"
         )
 
     print("dogfood manifest in sync with site/")

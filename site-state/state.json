@@ -1,5 +1,5 @@
 {
-  "site_rev": 11,
+  "site_rev": 12,
   "revision_floor": 0,
   "coverage": {
     "mode": "complete"
@@ -10,11 +10,6 @@
       "digest": "b593b49846c880cb02ec17e41d722029cb12a7ba308a3170b90cad0e6f8b55d3",
       "modified": "2026-09-16T20:56:52Z"
     },
-    "/404.html": {
-      "rev": 1,
-      "digest": "8d8a7407dbd43b07f09ecf7d5bb675bb65e05519e42829c60c3dde96b2579d27",
-      "modified": "2026-07-04T04:42:38Z"
-    },
     "/announcements/v1-rc/": {
       "rev": 2,
       "digest": "2c359e91be957fec826231ffaf17766e3fb117d32c0c1c367e5b766c1f099d74",
@@ -23,6 +18,13 @@
     "/rel/": {
       "rev": 2,
       "digest": "4492e2b3fe5173167aa3b6dda19ee1a10c894db4f29745f82711ae7859d0167d",
+      "modified": "2026-07-04T04:42:38Z"
+    }
+  },
+  "retired": {
+    "/404.html": {
+      "rev": 1,
+      "digest": "8d8a7407dbd43b07f09ecf7d5bb675bb65e05519e42829c60c3dde96b2579d27",
       "modified": "2026-07-04T04:42:38Z"
     }
   }

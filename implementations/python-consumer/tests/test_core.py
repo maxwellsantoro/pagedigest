@@ -36,7 +36,9 @@ def load_tool(name: str) -> Any:
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
-    spec.loader.exec_module(module)
+    # Match direct script execution, where sibling tools are importable.
+    with patch.object(sys, "path", [str(path.parent), *sys.path]):
+        spec.loader.exec_module(module)
     return module
 
 

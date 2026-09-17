@@ -41,3 +41,11 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ff06334131c2a4195d4b68a96dc5ee6a
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Verify complete live consumer synchronization
+        run: |
+          expected_rev="$(python -c 'import json; print(json.load(open("site/.well-known/pagedigest.json"))["site_rev"])')"
+          uv run --project implementations/python-consumer --locked python tools/smoke_persistent_consumer.py \
+            https://pagedigest.org "$RUNNER_TEMP/live-consumer.json" --expect cold --expect-site-rev "$expected_rev"
+          uv run --project implementations/python-consumer --locked python tools/smoke_persistent_consumer.py \
+            https://pagedigest.org "$RUNNER_TEMP/live-consumer.json" --expect warm --expect-site-rev "$expected_rev"

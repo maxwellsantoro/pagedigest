@@ -34,6 +34,26 @@ from .store import Store, TRUSTED, SITE_DISTRUSTED
 BOOTSTRAP_WINDOW_S = 3600  # first hour with an origin: audit harder (cold-start trust)
 
 
+def directives(headers, name=b"Cache-Control"):
+    # Splitting quoted field lists can only make this conservative: qualified
+    # no-cache/private still exclude the entire response from replay.
+    return {part.strip().split(b"=", 1)[0].lower()
+            for value in headers.getlist(name) for part in value.split(b",")}
+
+
+def replayable(response, max_bytes):
+    policy = directives(response.headers)
+    unsupported = {b"private", b"no-store", b"no-cache", b"must-revalidate",
+                   b"proxy-revalidate", b"must-understand", b"max-age", b"s-maxage"}
+    vary = [part.strip().lower() for value in response.headers.getlist(b"Vary")
+            for part in value.split(b",")]
+    return (response.status == 200 and len(response.body) <= max_bytes
+            and not policy.intersection(unsupported)
+            and not response.headers.get(b"Expires")
+            and not response.headers.get(b"Set-Cookie")
+            and all(value in (b"", b"accept-encoding") for value in vary))
+
+
 class PageDigestMiddleware:
     def __init__(self, settings, stats):
         if not settings.getbool("PAGEDIGEST_ENABLED", True):
@@ -63,6 +83,7 @@ class PageDigestMiddleware:
     def process_request(self, request, spider):
         # Redirects and retries copy metadata; decide again for this request URL.
         request.meta.pop("pagedigest", None)
+        request.meta.pop("pagedigest_cache_key", None)
         if request.meta.pop("pagedigest_state_header", False):
             request.headers.pop("PageDigest-State", None)
         request.meta.pop("pagedigest_audit", None)
@@ -75,6 +96,15 @@ class PageDigestMiddleware:
         path = parts.path or "/"
         if parts.query:
             path += "?" + parts.query
+
+        request.meta["pagedigest_cache_key"] = (origin, path)
+        # Leave explicit HTTP validation/cache instructions to the downloader.
+        # Retain the key so a restrictive network response can revoke old replay.
+        if (request.meta.get("dont_cache") or request.headers.get(b"Cache-Control")
+                or request.headers.get(b"Pragma")
+                or any(name.lower().startswith(b"if-") for name in request.headers)):
+            self.stats.inc_value("pagedigest/request_cache_bypass")
+            return None
 
         man = self._manifest(origin)
         if man is None:
@@ -140,15 +170,26 @@ class PageDigestMiddleware:
         body, headers, _ = cached
         headers = Headers(headers)
         response_type = responsetypes.from_args(headers=headers, url=request.url, body=body)
+        response = response_type(request.url, status=200, headers=headers, body=body,
+                                 request=request, flags=["pagedigest_cached"])
+        # Existing databases may contain entries stored under an older policy.
+        if not replayable(response, self.max_cache_bytes):
+            self.store.invalidate_response(origin, path)
+            return None
         self._record_skip(origin, path, cached_size)
-        return response_type(request.url, status=200, headers=headers, body=body,
-                             request=request, flags=["pagedigest_cached"])
+        return response
 
 
     # ---- response path ----
     def process_response(self, request, response, spider):
         if "pagedigest_cached" in response.flags:
             return response
+        eligible = replayable(response, self.max_cache_bytes)
+        cache_key = request.meta.get("pagedigest_cache_key")
+        if cache_key and (not eligible or request.meta.get("dont_cache")
+                          or b"no-store" in directives(request.headers)):
+            self.store.invalidate_response(*cache_key)
+            self.stats.inc_value("pagedigest/cache_invalidated")
         meta = request.meta.get("pagedigest")
         if not meta:
             return response
@@ -177,12 +218,8 @@ class PageDigestMiddleware:
         if meta.get("rev_anomaly"):
             return response
 
-        # Cache only full public representations within the configured limit.
-        vary = response.headers.get(b"Vary", b"").lower().split(b",")
-        policy = response.headers.get(b"Cache-Control", b"").lower()
-        if (response.status != 200 or len(response.body) > self.max_cache_bytes
-                or any(value.strip() not in (b"", b"accept-encoding") for value in vary)
-                or b"private" in policy or b"no-store" in policy or response.headers.get(b"Set-Cookie")):
+        # Ineligible responses already revoked any old replay entry above.
+        if not eligible:
             return response
         self.store.set_response(meta["origin"], meta["path"], response)
         # record the freshly observed rev + size for next run's comparison

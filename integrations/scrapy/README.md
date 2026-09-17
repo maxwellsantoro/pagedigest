@@ -104,6 +104,8 @@ downloader/request_count      0     # every page skipped; manifest said nothing 
 
 ```bash
 python tests/test_offline.py
+python tests/test_traversal.py
+python tests/test_cache_policy.py
 ```
 
 Reactor-free tests cover: no-manifest fallback, first-contact-then-skip,
@@ -134,8 +136,21 @@ not by dropping the request. SQLite stores response bodies and headers alongside
 revisions; legacy stores without bodies refetch once. Cache-body integrity and
 any current manifest digest must agree before reuse. `PAGEDIGEST_MAX_CACHE_BYTES`
 limits stored responses (default 10 MiB); oversized bodies are fetched normally.
-Authenticated/cookie/range requests, private or no-store responses, non-200
-representations, Set-Cookie, and unsupported Vary responses are not reused.
+Authenticated/cookie/range requests, non-200 representations, Set-Cookie, and
+unsupported Vary responses are not reused. Explicit request Cache-Control,
+Pragma, conditional headers, and Scrapy's `dont_cache` flag bypass replay.
+
+This adapter does not implement HTTP freshness or response validation. It
+conservatively excludes responses with `no-cache` (including qualified forms),
+`private`, `no-store`, `must-revalidate`, `proxy-revalidate`, `must-understand`,
+`max-age`, `s-maxage`, or `Expires`. Ordinary downloading handles those URLs;
+PageDigest revision equality does not replace HTTP validation. See
+[RFC 9111](https://www.rfc-editor.org/rfc/rfc9111.html#section-5.2).
+
+Observing an ineligible network response invalidates any old replay body while
+preserving the revision high-water mark. Old databases are checked against the
+same policy before replay. Real middleware tests cover unchanged-body/revision
+policy transitions as well as initially ineligible responses.
 
 The SQLite store is per consumer. Retain it across runs, but allow eviction to
 fall back to network fetching. Replay preserves traversal for unchanged parents;

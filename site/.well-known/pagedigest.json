@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "generated": "2026-09-16T20:56:52Z",
-  "site_rev": 11,
+  "generated": "2026-09-17T00:00:33Z",
+  "site_rev": 12,
   "coverage": {
     "mode": "complete"
   },
@@ -9,10 +9,6 @@
     "/": {
       "rev": 11,
       "digest": "sha256:b593b49846c880cb02ec17e41d722029cb12a7ba308a3170b90cad0e6f8b55d3"
-    },
-    "/404.html": {
-      "rev": 1,
-      "digest": "sha256:8d8a7407dbd43b07f09ecf7d5bb675bb65e05519e42829c60c3dde96b2579d27"
     },
     "/announcements/v1-rc/": {
       "rev": 2,

@@ -81,6 +81,10 @@ def main():
             [str(python), str(ROOT / "integrations/scrapy/tests/test_traversal.py")],
             root,
         )
+        run(
+            [str(python), str(ROOT / "integrations/scrapy/tests/test_cache_policy.py")],
+            root,
+        )
         run([str(python), "-I", "-m", "pagedigest.cli", "--help"], root)
         if args.python_only:
             print("exact wheel installation checks passed")
