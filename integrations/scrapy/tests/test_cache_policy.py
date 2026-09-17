@@ -1,5 +1,6 @@
 """Exercise replay policy through a real Scrapy downloader and HTTP origin."""
 import json
+import hashlib
 import subprocess
 import sys
 import tempfile
@@ -14,13 +15,16 @@ sys.path.insert(0, str(ROOT / "integrations/scrapy"))
 PUBLIC = {"Cache-Control": "public"}
 CASES = {
     "request-no-cache": [({}, PUBLIC, False), ({}, PUBLIC, True),
-                         ({"Cache-Control": "no-cache"}, PUBLIC, False), ({}, PUBLIC, True)],
+                         ({"Cache-Control": "no-cache"}, PUBLIC, False), ({}, PUBLIC, False)],
     "request-pragma": [({}, PUBLIC, False), ({"Pragma": "no-cache"}, PUBLIC, False)],
     "request-validator": [({}, PUBLIC, False), ({"If-None-Match": '"previous"'}, PUBLIC, False)],
     "request-no-store": [({}, PUBLIC, False), ({"Cache-Control": "no-store"}, PUBLIC, False),
                          ({}, PUBLIC, False), ({}, PUBLIC, True)],
     "initial-no-cache": [({}, {"Cache-Control": "no-cache"}, False)] * 2,
     "legacy-no-cache": [({}, PUBLIC, False), ({}, PUBLIC, True)],
+    "audit-transition": [({}, PUBLIC, False), ({}, PUBLIC, True),
+                         ({}, {"Cache-Control": "no-store"}, False),
+                         ({}, {"Cache-Control": "no-store"}, False)],
 }
 for name, headers in {
     "no-store": {"Cache-Control": "no-store"},
@@ -77,6 +81,12 @@ def crawl():
                 "replayed": "pagedigest_cached" in response.flags,
                 "body": response.text,
             })
+            if case == "audit-transition" and index == 1:
+                # Trigger the real forced-audit recovery path without request
+                # bypass headers, so response-policy invalidation is exercised.
+                store = Store(database)
+                store.mark_url_suspect(origin, "/" + case)
+                store.close()
             if index + 1 < len(CASES[case]):
                 yield self.step(case, index + 1)
 
@@ -102,7 +112,7 @@ def main():
             if self.path == "/.well-known/pagedigest.json":
                 body = json.dumps({"version": 1, "generated": "2026-09-16T12:00:00Z",
                                    "site_rev": 1, "coverage": {"mode": "complete"},
-                                   "entries": {"/" + case: {"rev": 1} for case in CASES}}).encode()
+                                   "entries": {"/" + case: {"rev": 1, "digest": "sha256:" + hashlib.sha256(b"stable body").hexdigest()} for case in CASES}}).encode()
                 headers = {"Content-Type": "application/json"}
             else:
                 case = self.path[1:]

@@ -45,7 +45,17 @@ jobs:
       - name: Verify complete live consumer synchronization
         run: |
           expected_rev="$(python -c 'import json; print(json.load(open("site/.well-known/pagedigest.json"))["site_rev"])')"
-          uv run --project implementations/python-consumer --locked python tools/smoke_persistent_consumer.py \
-            https://pagedigest.org "$RUNNER_TEMP/live-consumer.json" --expect cold --expect-site-rev "$expected_rev"
-          uv run --project implementations/python-consumer --locked python tools/smoke_persistent_consumer.py \
-            https://pagedigest.org "$RUNNER_TEMP/live-consumer.json" --expect warm --expect-site-rev "$expected_rev"
+          # Public edges can still serve the previous manifest immediately after upload.
+          # Retry whole verified snapshots with separate state, never accept an old revision.
+          for attempt in $(seq 1 20); do
+            smoke_state="$RUNNER_TEMP/live-consumer-${attempt}.json"
+            if uv run --project implementations/python-consumer --locked python tools/smoke_persistent_consumer.py \
+                https://pagedigest.org "$smoke_state" --expect cold --expect-site-rev "$expected_rev" &&
+              uv run --project implementations/python-consumer --locked python tools/smoke_persistent_consumer.py \
+                https://pagedigest.org "$smoke_state" --expect warm --expect-site-rev "$expected_rev"; then
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "live consumer did not verify the deployed revision within the retry window" >&2
+          exit 1

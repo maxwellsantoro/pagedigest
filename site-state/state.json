@@ -1,14 +1,14 @@
 {
-  "site_rev": 12,
+  "site_rev": 13,
   "revision_floor": 0,
   "coverage": {
     "mode": "complete"
   },
   "entries": {
     "/": {
-      "rev": 11,
-      "digest": "b593b49846c880cb02ec17e41d722029cb12a7ba308a3170b90cad0e6f8b55d3",
-      "modified": "2026-09-16T20:56:52Z"
+      "rev": 12,
+      "digest": "f467f3799653ceccfbf4e44a2d9d2a7279b591684fce21ff1aafc599d74eb0f4",
+      "modified": "2026-09-17T00:05:09Z"
     },
     "/announcements/v1-rc/": {
       "rev": 2,

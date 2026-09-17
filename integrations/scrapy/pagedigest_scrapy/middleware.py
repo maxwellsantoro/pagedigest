@@ -103,6 +103,10 @@ class PageDigestMiddleware:
         if (request.meta.get("dont_cache") or request.headers.get(b"Cache-Control")
                 or request.headers.get(b"Pragma")
                 or any(name.lower().startswith(b"if-") for name in request.headers)):
+            # Redirect/retry middleware can consume the network response before
+            # our response hook. Retire the old body now; a later ordinary fetch
+            # can associate a replacement with an observed manifest revision.
+            self.store.invalidate_response(origin, path)
             self.stats.inc_value("pagedigest/request_cache_bypass")
             return None
 

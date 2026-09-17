@@ -333,6 +333,17 @@
     <div class="wrap" style="padding:0">
       <h2>Evidence and deployments</h2>
       <div class="proof">
+        <div class="stamp">Controlled comparison · local HTTP</div>
+        <p>Seven consumer strategies across six scenarios reproduced the same current resource
+        set and bytes before savings were counted. For 100 unchanged pages, an accurate sitemap
+        or fingerprint manifest needed one request. With the same 1% audit policy, both the
+        fingerprint and PageDigest strategies needed two.</p>
+        <p>The persistent consumer also read and hashed all 100 cached bodies. The comparison
+        counts that local work separately from network traffic. These are controlled fixture
+        results; independent recurring-consumer evidence remains open.</p>
+        <p><a href="https://github.com/maxwellsantoro/pagedigest/blob/main/docs/benchmarks/README.md">Read the comparison, raw results, and limits</a>.</p>
+      </div>
+      <div class="proof" style="margin-top:14px">
         <div class="stamp">Dated export estimate · July 3, 2026</div>
         <p>The <a href="https://github.com/maxwellsantoro/pagedigest/blob/main/docs/case-studies/dotrepo.md">dotrepo case study</a>
         covers 2,453 repository JSON records. It estimates 136 requests including the manifest,

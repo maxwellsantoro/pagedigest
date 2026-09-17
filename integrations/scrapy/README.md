@@ -139,6 +139,9 @@ limits stored responses (default 10 MiB); oversized bodies are fetched normally.
 Authenticated/cookie/range requests, non-200 representations, Set-Cookie, and
 unsupported Vary responses are not reused. Explicit request Cache-Control,
 Pragma, conditional headers, and Scrapy's `dont_cache` flag bypass replay.
+These bypasses revoke the previous replay body before downloading, including
+when redirect/retry middleware consumes the response. A subsequent ordinary
+fetch can cache a replacement associated with the current manifest revision.
 
 This adapter does not implement HTTP freshness or response validation. It
 conservatively excludes responses with `no-cache` (including qualified forms),
